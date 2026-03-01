@@ -23,7 +23,10 @@ function createGeminiClient(): LLMClient {
         model: GEMINI_MODEL,
         systemInstruction,
       });
-      const result = await model.generateContent(prompt);
+      const result = await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        tools: [{ googleSearch: {} } as any],
+      });
       const response = result.response.text();
       return { response, modelId: GEMINI_MODEL };
     },
@@ -40,6 +43,7 @@ function createClaudeClient(): LLMClient {
         max_tokens: 4096,
         system: systemInstruction,
         messages: [{ role: "user", content: prompt }],
+        tools: [{ type: "web_search_20250305", name: "web_search" }],
       });
 
       const response = message.content

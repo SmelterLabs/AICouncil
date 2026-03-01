@@ -77,8 +77,10 @@ interface LLMClient {
 ```
 
 Factory function `createLLMClient(member)` returns the appropriate client. Models:
-- Gemini: `gemini-3.1-pro-preview`
-- Claude: `claude-sonnet-4-6`
+- Gemini: `gemini-3.1-pro-preview` — with Google Search grounding (`googleSearchRetrieval` tool)
+- Claude: `claude-sonnet-4-6` — with web search (`web_search_20250305` server tool)
+
+Both models have real-time web search always enabled. The models decide when to actually search based on the question — no manual toggling needed. This ensures debates about current events, prices, or recent news use up-to-date information rather than training data.
 
 ### Trigger.dev Task Pattern
 

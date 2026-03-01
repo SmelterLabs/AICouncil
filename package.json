@@ -10,10 +10,10 @@
     "start": "node dist/server.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
-    "@google/generative-ai": "^0.21.0",
-    "@trigger.dev/sdk": "4.4.1",
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.49.0",
+    "@trigger.dev/sdk": "4.4.1",
     "express": "^4.21.0",
     "uuid": "^11.0.0"
   },
