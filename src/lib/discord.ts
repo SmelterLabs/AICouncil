@@ -98,6 +98,10 @@ export function getBotToken(member: CouncilMember): string {
       return process.env.GEMINI_BOT_TOKEN!;
     case "claude":
       return process.env.CLAUDE_BOT_TOKEN!;
+    case "grok":
+      return process.env.GROK_BOT_TOKEN!;
+    case "gpt":
+      return process.env.GPT_BOT_TOKEN!;
     default:
       throw new Error(`No bot token for member: ${member}`);
   }

@@ -40,7 +40,7 @@ app.post("/council", async (req, res) => {
       return;
     }
 
-    const councilMembers: CouncilMember[] = members || ["gemini", "claude"];
+    const councilMembers: CouncilMember[] = members || ["gemini", "claude", "grok", "gpt"];
     const source = triggeredBy || "api";
 
     const sessionId = await createSession(question.trim(), councilMembers, source);

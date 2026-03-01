@@ -3,6 +3,8 @@ import { insertRound, updateSession } from "../../lib/db";
 import { CouncilMember } from "../../lib/types";
 import { callGemini } from "./call-gemini";
 import { callClaude } from "./call-claude";
+import { callGrok } from "./call-grok";
+import { callGpt } from "./call-gpt";
 import { postDiscord } from "./post-discord";
 import { synthesize } from "./synthesize";
 
@@ -17,6 +19,8 @@ const DEBATE_SYSTEM = `You are participating in a structured debate with another
 const TASK_MAP = {
   gemini: callGemini,
   claude: callClaude,
+  grok: callGrok,
+  gpt: callGpt,
 } as const;
 
 // Pick synthesizer: rotate based on session count (simple alternation)

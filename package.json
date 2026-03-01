@@ -15,6 +15,7 @@
     "@supabase/supabase-js": "^2.49.0",
     "@trigger.dev/sdk": "4.4.1",
     "express": "^4.21.0",
+    "openai": "^6.25.0",
     "uuid": "^11.0.0"
   },
   "devDependencies": {

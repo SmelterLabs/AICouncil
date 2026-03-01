@@ -25,6 +25,8 @@ Trigger.dev Tasks
   ├── council-orchestrate   → runs full 3-round debate
   ├── council-call-gemini   → single Gemini API call
   ├── council-call-claude   → single Claude API call
+  ├── council-call-grok     → single Grok API call
+  ├── council-call-gpt      → single GPT API call
   ├── council-synthesize    → final synthesis round
   └── council-post-discord  → posts to Discord as bot
   │
@@ -49,6 +51,8 @@ src/
 │       ├── orchestrate.ts              # Full debate orchestrator
 │       ├── call-gemini.ts              # Gemini LLM call task
 │       ├── call-claude.ts              # Claude LLM call task
+│       ├── call-grok.ts               # Grok LLM call task
+│       ├── call-gpt.ts                # GPT LLM call task
 │       ├── synthesize.ts               # Synthesis round task
 │       └── post-discord.ts             # Discord posting task
 web/
@@ -77,10 +81,12 @@ interface LLMClient {
 ```
 
 Factory function `createLLMClient(member)` returns the appropriate client. Models:
-- Gemini: `gemini-3.1-pro-preview` — with Google Search grounding (`googleSearchRetrieval` tool)
+- Gemini: `gemini-3.1-pro-preview` — with Google Search grounding (`googleSearch` tool, `as any` cast needed)
 - Claude: `claude-sonnet-4-6` — with web search (`web_search_20250305` server tool)
+- Grok: `grok-3` — xAI API via `openai` SDK with `baseURL: "https://api.x.ai/v1"`, Responses API with `web_search` tool
+- GPT: `gpt-4o` — OpenAI API via `openai` SDK, Responses API with `web_search_preview` tool
 
-Both models have real-time web search always enabled. The models decide when to actually search based on the question — no manual toggling needed. This ensures debates about current events, prices, or recent news use up-to-date information rather than training data.
+All models have real-time web search always enabled. The models decide when to actually search based on the question — no manual toggling needed. Grok and GPT both use the `openai` npm package (xAI's API is OpenAI-compatible).
 
 ### Trigger.dev Task Pattern
 
@@ -113,6 +119,8 @@ Messages longer than 1950 chars are split at newline boundaries via `splitMessag
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
 | `GEMINI_BOT_TOKEN` | Discord bot token for Gemini |
 | `CLAUDE_BOT_TOKEN` | Discord bot token for Claude |
+| `GROK_BOT_TOKEN` | Discord bot token for Grok |
+| `GPT_BOT_TOKEN` | Discord bot token for GPT |
 | `COUNCIL_CHANNEL_ID` | Discord channel ID |
 
 **Trigger.dev dashboard** (task runtime):
@@ -121,10 +129,14 @@ Messages longer than 1950 chars are split at newline boundaries via `splitMessag
 |---|---|
 | `GEMINI_API_KEY` | Google Gemini API key |
 | `ANTHROPIC_API_KEY` | Anthropic API key |
+| `XAI_API_KEY` | xAI (Grok) API key |
+| `OPENAI_API_KEY` | OpenAI (GPT) API key |
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
 | `GEMINI_BOT_TOKEN` | Discord bot token for Gemini |
 | `CLAUDE_BOT_TOKEN` | Discord bot token for Claude |
+| `GROK_BOT_TOKEN` | Discord bot token for Grok |
+| `GPT_BOT_TOKEN` | Discord bot token for GPT |
 | `COUNCIL_CHANNEL_ID` | Discord channel ID |
 
 **GitHub Secrets**: `TRIGGER_ACCESS_TOKEN` (PAT for CI deploy — NOT the project secret key).

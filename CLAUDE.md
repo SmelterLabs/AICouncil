@@ -4,7 +4,7 @@
 
 A structured debate engine where multiple LLMs independently answer a question, critique each other's positions across multiple rounds, and produce a synthesized final answer highlighting agreement and dissent. Built with TypeScript, Express, Trigger.dev v4, Supabase (Postgres), and multiple LLM APIs.
 
-**Phase 1:** 2 LLMs (Gemini + Claude). **Phase 2:** 4 LLMs (+Grok +GPT).
+**4 LLMs:** Gemini, Claude, Grok, GPT.
 
 **Core loop:** Question → Round 1 (independent answers) → Round 2 (mutual critique) → Round 3 (synthesis) → Final answer posted to Discord + stored in Supabase.
 
@@ -21,7 +21,7 @@ AI Council is a **standalone project** — a sibling to the [ChemAI Discord Bot]
 
 ```
 Discord (#ai-council)
-    ↑ posts results (2 bot accounts, Phase 1)
+    ↑ posts results (4 bot accounts)
     │
 REST API (Express, Railway)
     ├── POST /council       → starts debate
@@ -34,6 +34,8 @@ Trigger.dev Tasks (cloud)
     ├── council-orchestrate    → runs full debate flow
     ├── council-call-gemini    → single Gemini API call
     ├── council-call-claude    → single Claude API call
+    ├── council-call-grok      → single Grok API call
+    ├── council-call-gpt       → single GPT API call
     ├── council-synthesize     → final synthesis round
     └── council-post-discord   → posts round results to Discord
     │
@@ -49,14 +51,12 @@ Fixed 3-round structure. No convergence detection. No streaming.
 
 ```
 Round 1: Independent Answers
-├── Gemini answers question independently
-└── Claude answers question independently
-    (parallel — neither sees the other's response)
+├── All 4 LLMs answer question independently
+    (parallel — none see each other's response)
 
 Round 2: Critique
-├── Gemini receives Claude's Round 1 answer → critiques it
-└── Claude receives Gemini's Round 1 answer → critiques it
-    (parallel — each sees only the other's prior answer)
+├── Each LLM receives all other LLMs' Round 1 answers → critiques them
+    (parallel — each sees only others' prior answers)
 
 Round 3: Synthesis
 └── One LLM (rotated) receives ALL prior rounds → produces:
@@ -72,7 +72,7 @@ You are participating in a structured debate with another AI.
 Critique honestly, concede when the other side is right, and focus on reaching the best answer.
 ```
 
-No artificial personality overlays. No "you are analytical" or "you are creative." The natural differences between Gemini and Claude are the point.
+No artificial personality overlays. No "you are analytical" or "you are creative." The natural differences between the LLMs are the point.
 
 ## Project Structure
 
@@ -89,6 +89,8 @@ src/
 │       ├── orchestrate.ts                 # Full debate orchestrator (3 rounds)
 │       ├── call-gemini.ts                 # Single Gemini API call task
 │       ├── call-claude.ts                 # Single Claude API call task
+│       ├── call-grok.ts                   # Single Grok API call task
+│       ├── call-gpt.ts                    # Single GPT API call task
 │       ├── synthesize.ts                  # Synthesis round task
 │       └── post-discord.ts               # Post round results to #ai-council
 web/                                       # Static frontend
@@ -129,6 +131,8 @@ Everything deploys on `git push` to `master`:
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server-side only) |
 | `GEMINI_BOT_TOKEN` | Discord bot token for Gemini council member |
 | `CLAUDE_BOT_TOKEN` | Discord bot token for Claude council member |
+| `GROK_BOT_TOKEN` | Discord bot token for Grok council member |
+| `GPT_BOT_TOKEN` | Discord bot token for GPT council member |
 | `COUNCIL_CHANNEL_ID` | Discord #ai-council channel ID |
 
 **Trigger.dev dashboard** (task runtime):
@@ -137,10 +141,14 @@ Everything deploys on `git push` to `master`:
 |---|---|
 | `GEMINI_API_KEY` | Google Gemini API key |
 | `ANTHROPIC_API_KEY` | Anthropic Claude API key |
+| `XAI_API_KEY` | xAI (Grok) API key |
+| `OPENAI_API_KEY` | OpenAI (GPT) API key |
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
 | `GEMINI_BOT_TOKEN` | Discord bot token for Gemini member |
 | `CLAUDE_BOT_TOKEN` | Discord bot token for Claude member |
+| `GROK_BOT_TOKEN` | Discord bot token for Grok member |
+| `GPT_BOT_TOKEN` | Discord bot token for GPT member |
 | `COUNCIL_CHANNEL_ID` | Discord #ai-council channel ID |
 
 **GitHub Actions secret**: `TRIGGER_ACCESS_TOKEN` (PAT for deploy CLI)
@@ -211,7 +219,7 @@ GET /health
 
 ## Discord Integration
 
-### Two Bot Accounts (Phase 1)
+### Four Bot Accounts
 
 Each LLM council member is a separate Discord bot with its own token, username, and avatar. They post in `#ai-council` as distinct users.
 
@@ -219,6 +227,8 @@ Each LLM council member is a separate Discord bot with its own token, username, 
 |---|---|---|
 | Gemini | Gemini (Council) | `GEMINI_BOT_TOKEN` |
 | Claude | Claude (Council) | `CLAUDE_BOT_TOKEN` |
+| Grok | Grok (Council) | `GROK_BOT_TOKEN` |
+| GPT | GPT (Council) | `GPT_BOT_TOKEN` |
 
 **How posting works:** The `council-post-discord` Trigger.dev task uses Discord REST API (fetch + bot token) to post as the appropriate bot. No discord.js needed — tasks are short-lived, no WebSocket required.
 
@@ -237,7 +247,7 @@ This is ~10 lines in bot.ts. All debate logic, bot management, and posting lives
 ## Key Patterns
 
 - **LLM client interface** — `llm-client.ts` exports a unified interface: `generate(prompt, systemInstruction) → response`. Each LLM has a factory function. Adding Phase 2 LLMs = adding a new case.
-- **One task per LLM call** — Each invocation is a separate Trigger.dev task (`call-gemini`, `call-claude`). Per-call observability, independent retry, isolated failure.
+- **One task per LLM call** — Each invocation is a separate Trigger.dev task (`call-gemini`, `call-claude`, `call-grok`, `call-gpt`). Per-call observability, independent retry, isolated failure.
 - **Orchestrator pattern** — `council-orchestrate` coordinates the full debate using `tasks.triggerAndWait()` for child tasks. Sequential by round, parallel within each round.
 - **No personas** — LLMs use their natural reasoning style. Only light debate framing is injected. No character assignments.
 - **Batch responses only** — No streaming. Each LLM call returns a complete response. Discord posts happen after each round completes.
@@ -249,18 +259,22 @@ This is ~10 lines in bot.ts. All debate logic, bot management, and posting lives
 
 | Member | Model ID | Notes |
 |---|---|---|
-| Gemini | `gemini-3.1-pro-preview` | Same model as ChemAI. Google's latest flagship. |
-| Claude | `claude-sonnet-4-6` | Mid-tier model. Chosen for fairness (Sonnet ≈ Gemini Pro) and cost. |
-| Grok (Phase 2) | TBD | xAI API |
-| GPT (Phase 2) | TBD | OpenAI API |
+| Gemini | `gemini-3.1-pro-preview` | Google AI SDK. Google Search grounding. |
+| Claude | `claude-sonnet-4-6` | Anthropic SDK. Web search server tool. |
+| Grok | `grok-3` | xAI API via `openai` SDK (`baseURL: "https://api.x.ai/v1"`). Responses API web search. |
+| GPT | `gpt-4o` | OpenAI SDK. Responses API web search. |
 
-**If a model stops working:** Check [Google AI Studio](https://aistudio.google.com) or [Anthropic docs](https://docs.anthropic.com) for current model IDs.
+All models have real-time web search enabled. Grok and GPT both use the `openai` npm package — xAI's API is OpenAI-compatible.
+
+**If a model stops working:** Check [Google AI Studio](https://aistudio.google.com), [Anthropic docs](https://docs.anthropic.com), [xAI docs](https://docs.x.ai), or [OpenAI docs](https://platform.openai.com/docs) for current model IDs.
 
 ## Cost
 
 - **Gemini** — Covered by Gemini Pro subscription.
-- **Claude** — Billed separately at Anthropic API rates. Claude Max subscription does NOT cover API calls from custom applications. Sonnet 4.6: ~$3/M input tokens, ~$15/M output tokens. A typical 3-round debate costs ~$0.02-0.10.
-- **Phase 2 (Grok, GPT)** — Free tier rate limits. Add per-session and daily budget controls before enabling.
+- **Claude** — Anthropic API rates. Sonnet 4.6: ~$3/M input, ~$15/M output.
+- **Grok** — xAI API rates. Grok 3: ~$3/M input, ~$15/M output.
+- **GPT** — OpenAI API rates. GPT-4o: ~$2.50/M input, ~$10/M output.
+- A typical 4-member 3-round debate costs ~$0.10-0.30 total.
 
 ## Conventions
 
@@ -273,21 +287,20 @@ This is ~10 lines in bot.ts. All debate logic, bot management, and posting lives
 - All LLM API keys go in Trigger.dev dashboard env vars, not in Railway or `.env`
 - `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` must be set in both `.env` (local/Railway) and Trigger.dev dashboard
 
-## Phasing
+## Current State
 
-### Phase 1 (Current)
-- 2 LLMs: Gemini + Claude (Sonnet)
+- 4 LLMs: Gemini, Claude, Grok, GPT
 - 3 rounds: independent → critique → synthesis
-- 2 Discord bot accounts in `#ai-council`
+- 4 Discord bot accounts in `#ai-council`
 - REST API on Railway
 - Supabase (Postgres) for session history
 - Static web app (start debate + browse history)
-- No cost controls (Gemini Pro + Claude API is cheap at Sonnet tier)
+- All models have web search enabled
+- Default `POST /council` uses all 4 members; `members` array can override
 
-### Phase 2 (Future)
-- 4 LLMs: Add Grok + GPT (new tasks: `call-grok`, `call-gpt`)
-- Cost controls — per-session and daily budget limits for free-tier LLMs
-- Dynamic member selection — `POST /council` accepts `members` array
+## Future Ideas
+
+- Cost controls — per-session and daily budget limits
 - Richer web app — side-by-side comparison, round navigation, cost dashboard
 - Streaming for web app (not Discord)
 

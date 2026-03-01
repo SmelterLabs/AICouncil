@@ -1,4 +1,4 @@
-export type CouncilMember = "gemini" | "claude";
+export type CouncilMember = "gemini" | "claude" | "grok" | "gpt";
 
 export type SessionStatus = "pending" | "in_progress" | "completed" | "failed";
 
