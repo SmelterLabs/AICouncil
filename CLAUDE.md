@@ -265,7 +265,7 @@ This is ~10 lines in bot.ts. All debate logic, bot management, and posting lives
 |---|---|---|
 | Gemini | `gemini-3.1-pro-preview` | Google AI SDK. Google Search grounding. |
 | Claude | `claude-sonnet-4-6` | Anthropic SDK. Web search server tool. |
-| Grok | `grok-3` | xAI API via `openai` SDK (`baseURL: "https://api.x.ai/v1"`). Responses API web search. |
+| Grok | `grok-4` | xAI API via `openai` SDK (`baseURL: "https://api.x.ai/v1"`). Responses API web search. |
 | GPT | `gpt-4o` | OpenAI SDK. Responses API web search. |
 
 All models have real-time web search enabled. Grok and GPT both use the `openai` npm package — xAI's API is OpenAI-compatible.
@@ -276,7 +276,7 @@ All models have real-time web search enabled. Grok and GPT both use the `openai`
 
 - **Gemini** — Covered by Gemini Pro subscription.
 - **Claude** — Anthropic API rates. Sonnet 4.6: ~$3/M input, ~$15/M output.
-- **Grok** — xAI API rates. Grok 3: ~$3/M input, ~$15/M output.
+- **Grok** — xAI API rates. Grok 4: ~$3/M input, ~$15/M output.
 - **GPT** — OpenAI API rates. GPT-4o: ~$2.50/M input, ~$10/M output.
 - A typical 4-member 3-round debate costs ~$0.10-0.30 total.
 - Token usage tracked per round in `council_rounds.input_tokens` / `output_tokens`. Cost estimated client-side in the web frontend.

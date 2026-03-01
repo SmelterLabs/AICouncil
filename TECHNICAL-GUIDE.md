@@ -83,7 +83,7 @@ interface LLMClient {
 Factory function `createLLMClient(member)` returns the appropriate client. Models:
 - Gemini: `gemini-3.1-pro-preview` — with Google Search grounding (`googleSearch` tool, `as any` cast needed)
 - Claude: `claude-sonnet-4-6` — with web search (`web_search_20250305` server tool)
-- Grok: `grok-3` — xAI API via `openai` SDK with `baseURL: "https://api.x.ai/v1"`, Responses API with `web_search` tool
+- Grok: `grok-4` — xAI API via `openai` SDK with `baseURL: "https://api.x.ai/v1"`, Responses API with `web_search` tool
 - GPT: `gpt-4o` — OpenAI API via `openai` SDK, Responses API with `web_search_preview` tool
 
 All models have real-time web search always enabled. The models decide when to actually search based on the question — no manual toggling needed. Grok and GPT both use the `openai` npm package (xAI's API is OpenAI-compatible).
@@ -98,7 +98,7 @@ Each LLM call captures `input_tokens` and `output_tokens` from the SDK response,
 Cost estimation is client-side only (in `web/session.html`), not stored in DB. Rates:
 - Gemini: free (Google AI Studio)
 - Claude Sonnet 4.6: $3/M input, $15/M output
-- Grok-3: $3/M input, $15/M output
+- Grok-4: $3/M input, $15/M output
 - GPT-4o: $2.50/M input, $10/M output
 
 ### Trigger.dev Task Pattern

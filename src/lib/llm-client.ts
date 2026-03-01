@@ -16,7 +16,7 @@ export interface LLMClient {
 
 const GEMINI_MODEL = "gemini-3.1-pro-preview";
 const CLAUDE_MODEL = "claude-sonnet-4-6";
-const GROK_MODEL = "grok-3";
+const GROK_MODEL = "grok-4";
 const GPT_MODEL = "gpt-4o";
 
 function createGeminiClient(): LLMClient {
