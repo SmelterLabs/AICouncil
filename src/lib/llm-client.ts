@@ -6,6 +6,8 @@ import { CouncilMember } from "./types";
 export interface LLMResponse {
   response: string;
   modelId: string;
+  inputTokens?: number;
+  outputTokens?: number;
 }
 
 export interface LLMClient {
@@ -31,7 +33,13 @@ function createGeminiClient(): LLMClient {
         tools: [{ googleSearch: {} } as any],
       });
       const response = result.response.text();
-      return { response, modelId: GEMINI_MODEL };
+      const usage = result.response.usageMetadata;
+      return {
+        response,
+        modelId: GEMINI_MODEL,
+        inputTokens: usage?.promptTokenCount,
+        outputTokens: usage?.candidatesTokenCount,
+      };
     },
   };
 }
@@ -54,7 +62,12 @@ function createClaudeClient(): LLMClient {
         .map((block) => block.text)
         .join("\n");
 
-      return { response, modelId: CLAUDE_MODEL };
+      return {
+        response,
+        modelId: CLAUDE_MODEL,
+        inputTokens: message.usage?.input_tokens,
+        outputTokens: message.usage?.output_tokens,
+      };
     },
   };
 }
@@ -73,7 +86,12 @@ function createGrokClient(): LLMClient {
         input: prompt,
         tools: [{ type: "web_search" as any }],
       });
-      return { response: response.output_text, modelId: GROK_MODEL };
+      return {
+        response: response.output_text,
+        modelId: GROK_MODEL,
+        inputTokens: response.usage?.input_tokens,
+        outputTokens: response.usage?.output_tokens,
+      };
     },
   };
 }
@@ -91,7 +109,12 @@ function createGptClient(): LLMClient {
         input: prompt,
         tools: [{ type: "web_search_preview" }],
       });
-      return { response: response.output_text, modelId: GPT_MODEL };
+      return {
+        response: response.output_text,
+        modelId: GPT_MODEL,
+        inputTokens: response.usage?.input_tokens,
+        outputTokens: response.usage?.output_tokens,
+      };
     },
   };
 }

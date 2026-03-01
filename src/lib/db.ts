@@ -129,7 +129,9 @@ export async function insertRound(
   prompt: string,
   response: string,
   modelId: string,
-  durationMs: number
+  durationMs: number,
+  inputTokens?: number,
+  outputTokens?: number
 ): Promise<string> {
   const id = uuidv4();
   const { error } = await supabase.from("council_rounds").insert({
@@ -142,6 +144,8 @@ export async function insertRound(
     response,
     model_id: modelId,
     duration_ms: durationMs,
+    input_tokens: inputTokens ?? null,
+    output_tokens: outputTokens ?? null,
   });
   if (error) throw new Error(`Failed to insert round: ${error.message}`);
   return id;

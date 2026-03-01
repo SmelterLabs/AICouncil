@@ -76,7 +76,9 @@ export const orchestrate = task({
           round1Prompt,
           result.output.response,
           result.output.modelId,
-          result.output.durationMs
+          result.output.durationMs,
+          result.output.inputTokens,
+          result.output.outputTokens
         );
 
         // Post to Discord (sequential — first creates thread, rest post to it)
@@ -119,7 +121,7 @@ export const orchestrate = task({
             })
             .join("\n\n");
 
-          const critiquePrompt = `Original question: ${question}\n\nYour Round 1 answer:\n${round1Responses[member]}\n\nOther participant(s)' answers:\n${otherResponses}\n\nCritique the other participant(s)' answer. Quickly and concisely acknowledge where you agree. Then identify where you disagree and be concise. Either reiterate your original claim or make a quick and concise alteration to your stance.`;
+          const critiquePrompt = `Original question: ${question}\n\nYour Round 1 answer:\n${round1Responses[member]}\n\nOther participants' answers:\n${otherResponses}\n\nFor each other participant's answer:\n1. Identify their single strongest claim and briefly say why it's strong.\n2. Identify their single weakest claim and explain why it's wrong or unsupported.\n3. If their answer changes your position on anything, state what you'd revise and why.\n\nBe concise. No preamble.`;
           round2Prompts[member] = critiquePrompt;
 
           return {
@@ -169,7 +171,9 @@ export const orchestrate = task({
           round2Prompts[member],
           result.output.response,
           result.output.modelId,
-          result.output.durationMs
+          result.output.durationMs,
+          result.output.inputTokens,
+          result.output.outputTokens
         );
 
         allRoundsData.push({
@@ -215,6 +219,8 @@ export const orchestrate = task({
         modelId: string;
         durationMs: number;
         prompt: string;
+        inputTokens?: number;
+        outputTokens?: number;
       };
 
       await insertRound(
@@ -225,7 +231,9 @@ export const orchestrate = task({
         synthesisOutput.prompt,
         synthesisOutput.synthesis,
         synthesisOutput.modelId,
-        synthesisOutput.durationMs
+        synthesisOutput.durationMs,
+        synthesisOutput.inputTokens,
+        synthesisOutput.outputTokens
       );
 
       // Post synthesis to Discord

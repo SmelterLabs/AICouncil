@@ -49,6 +49,8 @@ export const synthesize = task({
       modelId: result.modelId,
       durationMs,
       prompt,
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
     };
   },
 });

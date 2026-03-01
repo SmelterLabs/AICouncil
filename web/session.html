@@ -42,6 +42,24 @@
       }
     }
 
+    const COST_RATES = {
+      'gemini-3.1-pro-preview': { input: 0, output: 0 },
+      'claude-sonnet-4-6': { input: 3.00, output: 15.00 },
+      'grok-3': { input: 3.00, output: 15.00 },
+      'gpt-4o': { input: 2.50, output: 10.00 },
+    };
+
+    function estimateCost(modelId, inputTokens, outputTokens) {
+      const rates = COST_RATES[modelId];
+      if (!rates || inputTokens == null || outputTokens == null) return null;
+      return (inputTokens * rates.input + outputTokens * rates.output) / 1_000_000;
+    }
+
+    function formatTokens(n) {
+      if (n == null) return null;
+      return n.toLocaleString();
+    }
+
     function renderSession(session) {
       const container = document.getElementById('content');
       const date = new Date(session.created_at).toLocaleString();
@@ -49,6 +67,17 @@
       const duration = session.total_duration_ms
         ? `${(session.total_duration_ms / 1000).toFixed(1)}s`
         : 'In progress';
+
+      // Calculate total session cost
+      let totalCost = 0;
+      let hasCostData = false;
+      for (const round of session.rounds) {
+        const cost = estimateCost(round.model_id, round.input_tokens, round.output_tokens);
+        if (cost !== null) {
+          totalCost += cost;
+          hasCostData = true;
+        }
+      }
 
       let html = `
         <div class="session-header">
@@ -59,6 +88,7 @@
             <span>Started: ${date}</span>
             <span>Duration: ${duration}</span>
             ${session.synthesizer ? `<span>Synthesizer: ${session.synthesizer}</span>` : ''}
+            ${hasCostData ? `<span>Est. cost: ~$${totalCost.toFixed(4)}</span>` : ''}
           </div>
         </div>
       `;
@@ -92,11 +122,17 @@
           const label = round.member.charAt(0).toUpperCase() + round.member.slice(1);
           const secs = (round.duration_ms / 1000).toFixed(1);
 
+          const tokenInfo = formatTokens(round.input_tokens) && formatTokens(round.output_tokens)
+            ? ` &middot; ${formatTokens(round.input_tokens)} in / ${formatTokens(round.output_tokens)} out`
+            : '';
+          const roundCost = estimateCost(round.model_id, round.input_tokens, round.output_tokens);
+          const costInfo = roundCost !== null ? ` &middot; ~$${roundCost.toFixed(4)}` : '';
+
           html += `
             <div class="${cardClass}">
               <div class="member-label ${memberClass}">${label}</div>
               <div class="response">${escapeHtml(round.response)}</div>
-              <div class="duration">${round.model_id} &middot; ${secs}s</div>
+              <div class="duration">${round.model_id} &middot; ${secs}s${tokenInfo}${costInfo}</div>
             </div>
           `;
         }

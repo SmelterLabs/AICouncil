@@ -16,6 +16,8 @@ export const callGrok = task({
       response: result.response,
       modelId: result.modelId,
       durationMs,
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
     };
   },
 });

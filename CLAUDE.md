@@ -194,6 +194,8 @@ Cloud Postgres via Supabase free tier. Both the Express server (Railway) and Tri
 | `response` | text NOT NULL | The LLM's response |
 | `model_id` | text NOT NULL | Exact model ID used |
 | `duration_ms` | integer NOT NULL | Time for this LLM call |
+| `input_tokens` | integer | Input tokens used (nullable for old rows) |
+| `output_tokens` | integer | Output tokens used (nullable for old rows) |
 | `created_at` | timestamptz | When this round completed (default: now()) |
 
 **UNIQUE constraint:** `(session_id, round_number, member)` — one response per member per round per session.
@@ -254,6 +256,8 @@ This is ~10 lines in bot.ts. All debate logic, bot management, and posting lives
 - **Message splitting** — Discord caps at 2000 chars. Split long responses at newline boundaries (same pattern as Discord Bot's `splitMessage()`).
 - **DB writes after each round** — The orchestrator writes to Supabase after each round. If a write fails, the debate continues. The database is for history, not orchestration state.
 - **Synthesizer rotation** — Round 3 synthesizer alternates between members. Tracked in `council_sessions.synthesizer`.
+- **Token/cost tracking** — Each LLM call captures `input_tokens` and `output_tokens` from the SDK response, stored in `council_rounds`. Cost estimation is client-side in the web frontend (not stored in DB).
+- **Structured critique** — Round 2 prompts force each LLM to identify the single strongest and weakest claim in each opponent's answer, rather than vague agreement/disagreement.
 
 ## Models
 
@@ -275,6 +279,7 @@ All models have real-time web search enabled. Grok and GPT both use the `openai`
 - **Grok** — xAI API rates. Grok 3: ~$3/M input, ~$15/M output.
 - **GPT** — OpenAI API rates. GPT-4o: ~$2.50/M input, ~$10/M output.
 - A typical 4-member 3-round debate costs ~$0.10-0.30 total.
+- Token usage tracked per round in `council_rounds.input_tokens` / `output_tokens`. Cost estimated client-side in the web frontend.
 
 ## Conventions
 
@@ -296,6 +301,8 @@ All models have real-time web search enabled. Grok and GPT both use the `openai`
 - Supabase (Postgres) for session history
 - Static web app (start debate + browse history)
 - All models have web search enabled
+- Token/cost tracking per round (displayed on web frontend)
+- Structured critique prompt (strongest/weakest claim format)
 - Default `POST /council` uses all 4 members; `members` array can override
 
 ## Future Ideas

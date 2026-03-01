@@ -88,6 +88,19 @@ Factory function `createLLMClient(member)` returns the appropriate client. Model
 
 All models have real-time web search always enabled. The models decide when to actually search based on the question — no manual toggling needed. Grok and GPT both use the `openai` npm package (xAI's API is OpenAI-compatible).
 
+### Token/Cost Tracking
+
+Each LLM call captures `input_tokens` and `output_tokens` from the SDK response, stored in `council_rounds`. Token extraction per SDK:
+- Gemini: `result.response.usageMetadata.promptTokenCount` / `candidatesTokenCount`
+- Claude: `message.usage.input_tokens` / `output_tokens`
+- Grok/GPT: `response.usage.input_tokens` / `output_tokens` (OpenAI Responses API format)
+
+Cost estimation is client-side only (in `web/session.html`), not stored in DB. Rates:
+- Gemini: free (Google AI Studio)
+- Claude Sonnet 4.6: $3/M input, $15/M output
+- Grok-3: $3/M input, $15/M output
+- GPT-4o: $2.50/M input, $10/M output
+
 ### Trigger.dev Task Pattern
 
 Each LLM call is a separate task for independent retry and observability. The orchestrator uses `batch.triggerByTaskAndWait()` for parallel calls and `tasks.triggerAndWait()` for sequential calls:
@@ -176,6 +189,8 @@ CREATE TABLE council_rounds (
   response text NOT NULL,
   model_id text NOT NULL,
   duration_ms integer NOT NULL,
+  input_tokens integer,
+  output_tokens integer,
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (session_id, round_number, member)
 );
