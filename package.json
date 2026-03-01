@@ -1,0 +1,27 @@
+{
+  "name": "ai-council",
+  "version": "1.0.0",
+  "description": "Structured debate engine where multiple LLMs answer, critique, and synthesize",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx --env-file=.env src/server.ts",
+    "trigger:dev": "npx trigger.dev@latest dev",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@google/generative-ai": "^0.21.0",
+    "@trigger.dev/sdk": "4.4.1",
+    "@supabase/supabase-js": "^2.49.0",
+    "express": "^4.21.0",
+    "uuid": "^11.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^20.0.0",
+    "@types/uuid": "^10.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}

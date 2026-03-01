@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debate Session — AI Council</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <a href="index.html" class="back-link">&larr; Back to debates</a>
+    <div id="content">
+      <div class="loading">Loading debate...</div>
+    </div>
+  </div>
+
+  <script>
+    const API = window.location.origin;
+    const sessionId = new URLSearchParams(window.location.search).get('id');
+
+    async function loadSession() {
+      const container = document.getElementById('content');
+
+      if (!sessionId) {
+        container.innerHTML = '<div class="alert">No session ID provided.</div>';
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/council/${sessionId}`);
+        if (!res.ok) throw new Error('Session not found');
+
+        const session = await res.json();
+        renderSession(session);
+
+        // Auto-refresh if still in progress
+        if (session.status === 'pending' || session.status === 'in_progress') {
+          setTimeout(loadSession, 3000);
+        }
+      } catch (err) {
+        container.innerHTML = `<div class="alert">${err.message}</div>`;
+      }
+    }
+
+    function renderSession(session) {
+      const container = document.getElementById('content');
+      const date = new Date(session.created_at).toLocaleString();
+      const members = JSON.parse(session.members).join(', ');
+      const duration = session.total_duration_ms
+        ? `${(session.total_duration_ms / 1000).toFixed(1)}s`
+        : 'In progress';
+
+      let html = `
+        <div class="session-header">
+          <div class="question">${escapeHtml(session.question)}</div>
+          <div class="meta-row">
+            <span><span class="status status-${session.status}">${session.status.replace('_', ' ')}</span></span>
+            <span>Members: ${members}</span>
+            <span>Started: ${date}</span>
+            <span>Duration: ${duration}</span>
+            ${session.synthesizer ? `<span>Synthesizer: ${session.synthesizer}</span>` : ''}
+          </div>
+        </div>
+      `;
+
+      if (session.error) {
+        html += `<div class="alert">Error: ${escapeHtml(session.error)}</div>`;
+      }
+
+      // Group rounds
+      const roundGroups = {};
+      for (const round of session.rounds) {
+        if (!roundGroups[round.round_number]) {
+          roundGroups[round.round_number] = [];
+        }
+        roundGroups[round.round_number].push(round);
+      }
+
+      const roundLabels = { 1: 'Round 1 — Independent Answers', 2: 'Round 2 — Critique', 3: 'Round 3 — Synthesis' };
+
+      for (const [num, rounds] of Object.entries(roundGroups)) {
+        const isSynthesis = num === '3';
+
+        html += `
+          <div class="round-group">
+            <div class="round-title">${roundLabels[num] || `Round ${num}`}</div>
+        `;
+
+        for (const round of rounds) {
+          const cardClass = isSynthesis ? 'synthesis-card' : 'round-card';
+          const memberClass = `member-${round.member}`;
+          const label = round.member.charAt(0).toUpperCase() + round.member.slice(1);
+          const secs = (round.duration_ms / 1000).toFixed(1);
+
+          html += `
+            <div class="${cardClass}">
+              <div class="member-label ${memberClass}">${label}</div>
+              <div class="response">${escapeHtml(round.response)}</div>
+              <div class="duration">${round.model_id} &middot; ${secs}s</div>
+            </div>
+          `;
+        }
+
+        html += '</div>';
+      }
+
+      if (session.rounds.length === 0 && (session.status === 'pending' || session.status === 'in_progress')) {
+        html += '<div class="loading">Debate in progress...</div>';
+      }
+
+      container.innerHTML = html;
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    loadSession();
+  </script>
+</body>
+</html>

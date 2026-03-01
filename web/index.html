@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Council</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>AI Council</h1>
+    <p class="subtitle">Structured debates between LLMs</p>
+
+    <div class="debate-form">
+      <label for="question">Start a new debate</label>
+      <textarea id="question" placeholder="Ask a question for the council to debate..."></textarea>
+      <button class="btn btn-primary" id="startBtn" onclick="startDebate()">Start Debate</button>
+    </div>
+
+    <div id="alert" style="display: none;"></div>
+
+    <h2>Recent Debates</h2>
+    <div id="sessions" class="session-list">
+      <div class="loading">Loading...</div>
+    </div>
+  </div>
+
+  <script>
+    const API = window.location.origin;
+
+    async function startDebate() {
+      const textarea = document.getElementById('question');
+      const btn = document.getElementById('startBtn');
+      const question = textarea.value.trim();
+
+      if (!question) return;
+
+      btn.disabled = true;
+      btn.textContent = 'Starting...';
+
+      try {
+        const res = await fetch(`${API}/council`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question, triggeredBy: 'web' }),
+        });
+
+        if (!res.ok) throw new Error(await res.text());
+
+        const data = await res.json();
+        showAlert(`Debate started! Session ID: ${data.sessionId}`, 'success');
+        textarea.value = '';
+        loadSessions();
+      } catch (err) {
+        showAlert(`Failed to start debate: ${err.message}`, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Start Debate';
+      }
+    }
+
+    function showAlert(message, type) {
+      const el = document.getElementById('alert');
+      el.className = type === 'success' ? 'alert alert-success' : 'alert';
+      el.textContent = message;
+      el.style.display = 'block';
+      setTimeout(() => { el.style.display = 'none'; }, 5000);
+    }
+
+    async function loadSessions() {
+      const container = document.getElementById('sessions');
+
+      try {
+        const res = await fetch(`${API}/council?limit=20`);
+        if (!res.ok) throw new Error('Failed to load sessions');
+
+        const data = await res.json();
+
+        if (data.sessions.length === 0) {
+          container.innerHTML = '<div class="empty">No debates yet. Start one above!</div>';
+          return;
+        }
+
+        container.innerHTML = data.sessions.map(s => {
+          const date = new Date(s.created_at).toLocaleDateString('en-US', {
+            month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+          });
+          const members = JSON.parse(s.members).join(', ');
+          const duration = s.total_duration_ms
+            ? `${(s.total_duration_ms / 1000).toFixed(1)}s`
+            : '';
+
+          return `
+            <a href="session.html?id=${s.id}" class="session-card">
+              <div>
+                <div class="session-question">${escapeHtml(s.question)}</div>
+                <div class="session-meta">${date} &middot; ${members}${duration ? ` &middot; ${duration}` : ''}</div>
+              </div>
+              <span class="status status-${s.status}">${s.status.replace('_', ' ')}</span>
+            </a>
+          `;
+        }).join('');
+      } catch (err) {
+        container.innerHTML = `<div class="alert">${err.message}</div>`;
+      }
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    loadSessions();
+  </script>
+</body>
+</html>
