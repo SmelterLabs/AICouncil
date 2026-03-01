@@ -15,7 +15,7 @@ interface SynthesizePayload {
   synthesizer: CouncilMember;
 }
 
-const SYNTHESIS_SYSTEM = `You are synthesizing a structured debate between AI models. Your job is to produce a fair, balanced final answer.`;
+const SYNTHESIS_SYSTEM = `You are synthesizing a structured debate between AI models. Your job is to produce a definitive final answer. Be concise and matter of fact.`;
 
 function buildSynthesisPrompt(
   question: string,
@@ -30,11 +30,7 @@ function buildSynthesisPrompt(
     prompt += `${round.response}\n\n`;
   }
 
-  prompt += `Based on the debate above, provide a synthesis that includes:\n`;
-  prompt += `1. **Points of Agreement** — Where both sides converge\n`;
-  prompt += `2. **Points of Disagreement** — Where they differ, with reasoning from each side\n`;
-  prompt += `3. **Synthesized Final Answer** — Your best answer incorporating both perspectives\n`;
-  prompt += `4. **Confidence Assessment** — How confident you are in the synthesized answer and why\n`;
+  prompt += `Synthesize and give a concise conclusion. Be definitive. Don't summarize the debate.\n`;
 
   return prompt;
 }

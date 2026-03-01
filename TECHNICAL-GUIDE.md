@@ -78,14 +78,16 @@ interface LLMClient {
 
 Factory function `createLLMClient(member)` returns the appropriate client. Models:
 - Gemini: `gemini-3.1-pro-preview`
-- Claude: `claude-sonnet-4-6-20250514`
+- Claude: `claude-sonnet-4-6`
 
 ### Trigger.dev Task Pattern
 
-Each LLM call is a separate task for independent retry and observability. The orchestrator calls child tasks with `tasks.triggerAndWait()`:
-- Round 1: parallel calls via `Promise.all()`
-- Round 2: parallel cross-critique calls
-- Round 3: single synthesis call
+Each LLM call is a separate task for independent retry and observability. The orchestrator uses `batch.triggerByTaskAndWait()` for parallel calls and `tasks.triggerAndWait()` for sequential calls:
+- Round 1: parallel via `batch.triggerByTaskAndWait()`
+- Round 2: parallel via `batch.triggerByTaskAndWait()`
+- Round 3: single `tasks.triggerAndWait()` call
+
+**Important:** Trigger.dev does NOT support `Promise.all()` around `triggerAndWait()` — it throws "Parallel waits are not supported". Always use `batch.triggerByTaskAndWait()` for parallel task execution.
 
 The Express server uses `tasks.trigger()` (fire-and-forget) to start the orchestrator.
 

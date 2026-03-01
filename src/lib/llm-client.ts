@@ -12,7 +12,7 @@ export interface LLMClient {
 }
 
 const GEMINI_MODEL = "gemini-3.1-pro-preview";
-const CLAUDE_MODEL = "claude-sonnet-4-6-20250514";
+const CLAUDE_MODEL = "claude-sonnet-4-6";
 
 function createGeminiClient(): LLMClient {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
