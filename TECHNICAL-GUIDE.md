@@ -228,7 +228,7 @@ The backend already supports the `members` array in `POST /council`. The slash c
 
 ## Gotchas
 
-- **Gemini SDK**: Uses `@google/genai` (v1.x), NOT the legacy `@google/generative-ai` (v0.x). The legacy SDK stopped working with `gemini-3.1-pro-preview` and its `googleSearch` tool. New SDK API: `ai.models.generateContent({ model, contents, config: { systemInstruction, tools } })`, response text via `result.text` (property, not method).
+- **Gemini SDK**: Uses `@google/genai` (v1.x), NOT the legacy `@google/generative-ai` (v0.x). The legacy SDK stopped working with `gemini-3.1-pro-preview` and its `googleSearch` tool. New SDK API: `ai.models.generateContent({ model, contents, config: { systemInstruction, tools } })`, response text via `result.text` (property, not method). **Important:** The new SDK defaults to 5 retry attempts with exponential backoff on 503s — configure `httpOptions: { timeout, retryOptions: { attempts: 2 } }` to avoid burning through the Trigger.dev maxDuration on transient 503 errors.
 - `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` must be set in BOTH `.env` (Express/Railway) AND Trigger.dev dashboard — both environments need database access
 - Discord threads have a 100-char name limit — `createThread()` truncates automatically
 - The orchestrator writes to Supabase after each round, but if a DB write fails the debate continues — the database is for history, not orchestration state

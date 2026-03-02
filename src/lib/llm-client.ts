@@ -20,7 +20,13 @@ const GROK_MODEL = "grok-4";
 const GPT_MODEL = "gpt-4o";
 
 function createGeminiClient(): LLMClient {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+  const ai = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY!,
+    httpOptions: {
+      timeout: 120_000, // 2 min per request
+      retryOptions: { attempts: 2 }, // 1 try + 1 retry (default is 5)
+    },
+  });
 
   return {
     async generate(prompt, systemInstruction) {
