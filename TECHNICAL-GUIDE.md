@@ -81,7 +81,7 @@ interface LLMClient {
 ```
 
 Factory function `createLLMClient(member)` returns the appropriate client. Models:
-- Gemini: `gemini-3.1-pro-preview` — uses `@google/genai` SDK (v1.x) with Google Search grounding (`googleSearch` tool)
+- Gemini: `gemini-2.5-pro` — uses `@google/genai` SDK (v1.x) with Google Search grounding (`googleSearch` tool)
 - Claude: `claude-sonnet-4-6` — with web search (`web_search_20250305` server tool)
 - Grok: `grok-4` — xAI API via `openai` SDK with `baseURL: "https://api.x.ai/v1"`, Responses API with `web_search` tool
 - GPT: `gpt-4o` — OpenAI API via `openai` SDK, Responses API with `web_search_preview` tool
@@ -96,7 +96,7 @@ Each LLM call captures `input_tokens` and `output_tokens` from the SDK response,
 - Grok/GPT: `response.usage.input_tokens` / `output_tokens` (OpenAI Responses API format)
 
 Cost estimation is client-side only (in `web/session.html`), not stored in DB. Rates:
-- Gemini: free (Google AI Studio)
+- Gemini 2.5 Pro: $1.25/M input, $10/M output
 - Claude Sonnet 4.6: $3/M input, $15/M output
 - Grok-4: $3/M input, $15/M output
 - GPT-4o: $2.50/M input, $10/M output
@@ -228,7 +228,8 @@ The backend already supports the `members` array in `POST /council`. The slash c
 
 ## Gotchas
 
-- **Gemini SDK**: Uses `@google/genai` (v1.x), NOT the legacy `@google/generative-ai` (v0.x). The legacy SDK stopped working with `gemini-3.1-pro-preview` and its `googleSearch` tool. New SDK API: `ai.models.generateContent({ model, contents, config: { systemInstruction, tools } })`, response text via `result.text` (property, not method). **Important:** The new SDK defaults to 5 retry attempts with exponential backoff on 503s — configure `httpOptions: { timeout, retryOptions: { attempts: 2 } }` to avoid burning through the Trigger.dev maxDuration on transient 503 errors.
+- **Gemini SDK**: Uses `@google/genai` (v1.x), NOT the legacy `@google/generative-ai` (v0.x). New SDK API: `ai.models.generateContent({ model, contents, config: { systemInstruction, tools } })`, response text via `result.text` (property, not method). **Important:** The new SDK defaults to 5 retry attempts with exponential backoff on 503s — configure `httpOptions: { timeout, retryOptions: { attempts: 2 } }` to avoid burning through the Trigger.dev maxDuration on transient 503 errors.
+- **Gemini model**: Using `gemini-2.5-pro` (stable GA). Switched from `gemini-3.1-pro-preview` which had extended 503 outages (24+ hours) in March 2026. Preview models are unreliable for production — prefer GA models.
 - `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` must be set in BOTH `.env` (Express/Railway) AND Trigger.dev dashboard — both environments need database access
 - Discord threads have a 100-char name limit — `createThread()` truncates automatically
 - The orchestrator writes to Supabase after each round, but if a DB write fails the debate continues — the database is for history, not orchestration state

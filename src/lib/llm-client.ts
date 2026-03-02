@@ -14,7 +14,7 @@ export interface LLMClient {
   generate(prompt: string, systemInstruction: string): Promise<LLMResponse>;
 }
 
-const GEMINI_MODEL = "gemini-3.1-pro-preview";
+const GEMINI_MODEL = "gemini-2.5-pro";
 const CLAUDE_MODEL = "claude-sonnet-4-6";
 const GROK_MODEL = "grok-4";
 const GPT_MODEL = "gpt-4o";

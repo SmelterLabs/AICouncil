@@ -263,7 +263,7 @@ This is ~10 lines in bot.ts. All debate logic, bot management, and posting lives
 
 | Member | Model ID | Notes |
 |---|---|---|
-| Gemini | `gemini-3.1-pro-preview` | Google AI SDK. Google Search grounding. |
+| Gemini | `gemini-2.5-pro` | Google AI SDK. Google Search grounding. |
 | Claude | `claude-sonnet-4-6` | Anthropic SDK. Web search server tool. |
 | Grok | `grok-4` | xAI API via `openai` SDK (`baseURL: "https://api.x.ai/v1"`). Responses API web search. |
 | GPT | `gpt-4o` | OpenAI SDK. Responses API web search. |
@@ -274,7 +274,7 @@ All models have real-time web search enabled. Grok and GPT both use the `openai`
 
 ## Cost
 
-- **Gemini** — Covered by Gemini Pro subscription.
+- **Gemini** — Google AI API rates. Gemini 2.5 Pro: ~$1.25/M input, ~$10/M output.
 - **Claude** — Anthropic API rates. Sonnet 4.6: ~$3/M input, ~$15/M output.
 - **Grok** — xAI API rates. Grok 4: ~$3/M input, ~$15/M output.
 - **GPT** — OpenAI API rates. GPT-4o: ~$2.50/M input, ~$10/M output.
