@@ -68,15 +68,20 @@
         ? `${(session.total_duration_ms / 1000).toFixed(1)}s`
         : 'In progress';
 
-      // Calculate total session cost
+      // Calculate total session tokens and cost
       let totalCost = 0;
+      let totalInputTokens = 0;
+      let totalOutputTokens = 0;
       let hasCostData = false;
+      let hasTokenData = false;
       for (const round of session.rounds) {
         const cost = estimateCost(round.model_id, round.input_tokens, round.output_tokens);
         if (cost !== null) {
           totalCost += cost;
           hasCostData = true;
         }
+        if (round.input_tokens != null) { totalInputTokens += round.input_tokens; hasTokenData = true; }
+        if (round.output_tokens != null) { totalOutputTokens += round.output_tokens; }
       }
 
       let html = `
@@ -88,6 +93,7 @@
             <span>Started: ${date}</span>
             <span>Duration: ${duration}</span>
             ${session.synthesizer ? `<span>Synthesizer: ${session.synthesizer}</span>` : ''}
+            ${hasTokenData ? `<span>Tokens: ${totalInputTokens.toLocaleString()} in / ${totalOutputTokens.toLocaleString()} out</span>` : ''}
             ${hasCostData ? `<span>Est. cost: ~$${totalCost.toFixed(4)}</span>` : ''}
           </div>
         </div>
