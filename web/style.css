@@ -109,6 +109,33 @@ h2 {
 .btn-primary:hover { background: var(--accent-hover); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* Member selection */
+.member-select {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.member-select-label {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.member-checkbox {
+  font-size: 0.8125rem;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.member-checkbox input[type="checkbox"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 /* Session list */
 .session-list {
   display: flex;

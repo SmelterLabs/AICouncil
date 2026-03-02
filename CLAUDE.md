@@ -292,6 +292,27 @@ All models have real-time web search enabled. Grok and GPT both use the `openai`
 - All LLM API keys go in Trigger.dev dashboard env vars, not in Railway or `.env`
 - `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` must be set in both `.env` (local/Railway) and Trigger.dev dashboard
 
+## Triggering Debates
+
+There are 4 ways to start a debate:
+
+| Method | How |
+|---|---|
+| **Claude Code (any project)** | `/user:council <question>` — global slash command at `~/.claude/commands/council.md` |
+| **Discord** | `!council <question>` in ChemAI bot |
+| **Web UI** | Visit `https://aicouncil-production-2677.up.railway.app` and use the form |
+| **curl / API** | `curl -X POST .../council -d '{"question":"..."}'` |
+
+All methods hit the same `POST /council` REST endpoint. Results post to `#ai-council` on Discord and are viewable on the web frontend.
+
+### Member Selection
+
+By default all 4 members run. To select specific members:
+- **Claude Code:** `/user:council @gemini @claude Is AI overhyped?` — `@member` tags are parsed and stripped from the question
+- **Web UI:** Uncheck members in the form checkboxes
+- **API:** Include `"members": ["gemini", "claude"]` in POST body
+- **Discord:** Not yet implemented
+
 ## Current State
 
 - 4 LLMs: Gemini, Claude, Grok, GPT
@@ -304,6 +325,8 @@ All models have real-time web search enabled. Grok and GPT both use the `openai`
 - Token/cost tracking per round (displayed on web frontend)
 - Structured critique prompt (strongest/weakest claim format)
 - Default `POST /council` uses all 4 members; `members` array can override
+- Member selection: `@member` syntax in slash command, checkboxes in web UI
+- Global Claude Code slash command: `/user:council` (works from any project)
 
 ## Future Ideas
 

@@ -202,6 +202,30 @@ CREATE INDEX idx_rounds_session ON council_rounds(session_id);
 
 Always use `npm run build` to verify TypeScript compiles — NOT `npx tsc --noEmit` (that ignores `skipLibCheck` and fails on .d.ts files).
 
+## Triggering Debates
+
+| Method | How |
+|---|---|
+| Claude Code (any project) | `/user:council <question>` — global command at `~/.claude/commands/council.md` |
+| Discord | `!council <question>` via ChemAI bot |
+| Web UI | Form at `https://aicouncil-production-2677.up.railway.app` |
+| curl / API | `POST /council` with `{"question":"..."}` |
+
+The `/user:council` command is a global Claude Code slash command — it works from any project, not just this one. It calls the production Railway API directly.
+
+### Member Selection
+
+By default all 4 members run. To run specific members only:
+
+| Method | Syntax |
+|---|---|
+| Claude Code | `/user:council @gemini @claude Is AI overhyped?` |
+| Web UI | Uncheck members in the form before starting |
+| curl / API | `POST /council` with `{"question":"...", "members": ["gemini", "claude"]}` |
+| Discord | Not yet implemented |
+
+The backend already supports the `members` array in `POST /council`. The slash command parses `@member` tags and strips them from the question. The web UI uses checkboxes (all checked by default).
+
 ## Gotchas
 
 - `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` must be set in BOTH `.env` (Express/Railway) AND Trigger.dev dashboard — both environments need database access

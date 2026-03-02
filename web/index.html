@@ -14,6 +14,13 @@
     <div class="debate-form">
       <label for="question">Start a new debate</label>
       <textarea id="question" placeholder="Ask a question for the council to debate..."></textarea>
+      <div class="member-select">
+        <span class="member-select-label">Members:</span>
+        <label class="member-checkbox"><input type="checkbox" value="gemini" checked> Gemini</label>
+        <label class="member-checkbox"><input type="checkbox" value="claude" checked> Claude</label>
+        <label class="member-checkbox"><input type="checkbox" value="grok" checked> Grok</label>
+        <label class="member-checkbox"><input type="checkbox" value="gpt" checked> GPT</label>
+      </div>
       <button class="btn btn-primary" id="startBtn" onclick="startDebate()">Start Debate</button>
     </div>
 
@@ -39,10 +46,17 @@
       btn.textContent = 'Starting...';
 
       try {
+        const checked = [...document.querySelectorAll('.member-checkbox input:checked')].map(el => el.value);
+        const allMembers = ['gemini', 'claude', 'grok', 'gpt'];
+        const body = { question, triggeredBy: 'web' };
+        if (checked.length > 0 && checked.length < allMembers.length) {
+          body.members = checked;
+        }
+
         const res = await fetch(`${API}/council`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question, triggeredBy: 'web' }),
+          body: JSON.stringify(body),
         });
 
         if (!res.ok) throw new Error(await res.text());
