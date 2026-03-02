@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { CouncilMember } from "./types";
@@ -20,20 +20,20 @@ const GROK_MODEL = "grok-4";
 const GPT_MODEL = "gpt-4o";
 
 function createGeminiClient(): LLMClient {
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
   return {
     async generate(prompt, systemInstruction) {
-      const model = genAI.getGenerativeModel({
+      const result = await ai.models.generateContent({
         model: GEMINI_MODEL,
-        systemInstruction,
+        contents: prompt,
+        config: {
+          systemInstruction,
+          tools: [{ googleSearch: {} }],
+        },
       });
-      const result = await model.generateContent({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        tools: [{ googleSearch: {} } as any],
-      });
-      const response = result.response.text();
-      const usage = result.response.usageMetadata;
+      const response = result.text ?? "";
+      const usage = result.usageMetadata;
       return {
         response,
         modelId: GEMINI_MODEL,
