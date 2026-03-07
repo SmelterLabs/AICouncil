@@ -6,4 +6,8 @@ export default defineConfig({
   logLevel: "log",
   dirs: ["./src/trigger"],
   maxDuration: 300,
+  init: async () => {
+    const { initLangfuse } = await import("./src/trigger/lib/langfuse");
+    initLangfuse();
+  },
 });

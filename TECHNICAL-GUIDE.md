@@ -47,6 +47,8 @@ src/
 │   ├── llm-client.ts                   # Unified LLM interface + factory
 │   └── discord.ts                      # Discord REST API helpers
 ├── trigger/
+│   ├── lib/
+│   │   └── langfuse.ts                 # Langfuse observability (init, flush, traceLLM)
 │   └── council/
 │       ├── orchestrate.ts              # Full debate orchestrator
 │       ├── call-gemini.ts              # Gemini LLM call task
@@ -151,6 +153,14 @@ Messages longer than 1950 chars are split at newline boundaries via `splitMessag
 | `GROK_BOT_TOKEN` | Discord bot token for Grok |
 | `GPT_BOT_TOKEN` | Discord bot token for GPT |
 | `COUNCIL_CHANNEL_ID` | Discord channel ID |
+
+**Langfuse vars** (both `.env` and Trigger.dev dashboard):
+
+| Variable | Purpose |
+|---|---|
+| `LANGFUSE_PUBLIC_KEY` | Langfuse project public key |
+| `LANGFUSE_SECRET_KEY` | Langfuse project secret key |
+| `LANGFUSE_BASE_URL` | `https://us.cloud.langfuse.com` |
 
 **GitHub Secrets**: `TRIGGER_ACCESS_TOKEN` (PAT for CI deploy — NOT the project secret key).
 

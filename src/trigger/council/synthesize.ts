@@ -1,6 +1,7 @@
 import { task } from "@trigger.dev/sdk/v3";
 import { createLLMClient } from "../../lib/llm-client";
 import { CouncilMember } from "../../lib/types";
+import { traceLLM, flushLangfuse } from "../lib/langfuse";
 
 interface RoundData {
   round: number;
@@ -38,19 +39,25 @@ function buildSynthesisPrompt(
 export const synthesize = task({
   id: "council-synthesize",
   run: async (payload: SynthesizePayload) => {
-    const start = Date.now();
-    const client = createLLMClient(payload.synthesizer);
-    const prompt = buildSynthesisPrompt(payload.question, payload.allRounds);
-    const result = await client.generate(prompt, SYNTHESIS_SYSTEM);
-    const durationMs = Date.now() - start;
+    try {
+      const start = Date.now();
+      const client = createLLMClient(payload.synthesizer);
+      const prompt = buildSynthesisPrompt(payload.question, payload.allRounds);
+      const result = await traceLLM(`council-synthesize-${payload.synthesizer}`, () =>
+        client.generate(prompt, SYNTHESIS_SYSTEM)
+      );
+      const durationMs = Date.now() - start;
 
-    return {
-      synthesis: result.response,
-      modelId: result.modelId,
-      durationMs,
-      prompt,
-      inputTokens: result.inputTokens,
-      outputTokens: result.outputTokens,
-    };
+      return {
+        synthesis: result.response,
+        modelId: result.modelId,
+        durationMs,
+        prompt,
+        inputTokens: result.inputTokens,
+        outputTokens: result.outputTokens,
+      };
+    } finally {
+      await flushLangfuse();
+    }
   },
 });
