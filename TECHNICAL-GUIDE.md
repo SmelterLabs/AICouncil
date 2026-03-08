@@ -48,7 +48,7 @@ src/
 │   └── discord.ts                      # Discord REST API helpers
 ├── trigger/
 │   ├── lib/
-│   │   └── langfuse.ts                 # traceLLM wrapper (OTel spans with gen_ai attributes)
+│   │   └── langfuse.ts                 # traceLLM wrapper (Langfuse SDK — trace + generation)
 │   └── council/
 │       ├── orchestrate.ts              # Full debate orchestrator
 │       ├── call-gemini.ts              # Gemini LLM call task
@@ -106,16 +106,19 @@ Cost estimation is client-side only (in `web/session.html`), not stored in DB. R
 
 ### Langfuse Observability
 
-LLM calls are traced via Langfuse using Trigger.dev's native OpenTelemetry telemetry. This avoids the NodeSDK conflict that occurs when using Langfuse's own `NodeSDK` alongside Trigger.dev's built-in OTel setup.
+LLM calls are traced to Langfuse using the **Langfuse JS SDK directly** (`langfuse` npm package). This creates clean, LLM-focused traces without the noise from Trigger.dev internal spans.
 
-**How it works:**
-- `trigger.config.ts` configures an `OTLPTraceExporter` wrapped in a **filtering exporter** that only forwards LLM-related spans (from `ai-council` tracer or OpenInference instrumentations). This filters out Trigger.dev internal noise (heartbeats, `runs.list()` polling, attempt tracking).
-- `src/trigger/lib/langfuse.ts` exports `traceLLM(name, fn, input?)` — creates an OTel span via `@opentelemetry/api` with `gen_ai.*` attributes (model, tokens) and OpenInference attributes (`input.value`, `output.value`) so Langfuse displays each call as an LLM generation.
-- All 5 task files pass the prompt text to `traceLLM()` so input content appears in Langfuse.
-- Auto-instrumentation via OpenInference: `AnthropicInstrumentation` (Claude) and `OpenAIInstrumentation` (GPT + Grok) add detailed SDK-level child spans.
-- Gemini has no auto-instrumentation (no JS package exists) — relies on `traceLLM` attributes only.
+**Previous approach (failed):** Used `@opentelemetry/api` with a custom filtered `OTLPTraceExporter` to pipe spans to Langfuse's OTEL endpoint. This didn't work — the filter relied on `instrumentationLibrary.name` which newer OTEL SDK versions renamed to `instrumentationScope`, causing all Trigger.dev internal spans ("Attempt 1" heartbeats, polling, etc.) to flood Langfuse with 465+ noisy traces.
 
-Langfuse is optional — if `LANGFUSE_SECRET_KEY` is not set, no exporters are configured and tracing is a no-op.
+**Current approach:**
+- `src/trigger/lib/langfuse.ts` exports `traceLLM(name, fn, input?)` — creates a Langfuse trace + generation directly via the SDK with model, tokens, input, and output.
+- All 5 LLM task files pass the prompt text to `traceLLM()`.
+- Each call creates exactly one trace with one generation — no noise.
+- `flushAsync()` is called after each generation to ensure data reaches Langfuse before the task returns.
+- Input/output are capped at 10,000 chars to avoid oversized payloads.
+- `trigger.config.ts` still configures `AnthropicInstrumentation` and `OpenAIInstrumentation` for Trigger.dev's own dashboard — these are independent of Langfuse.
+
+Langfuse is optional — if `LANGFUSE_SECRET_KEY` is not set, `traceLLM()` is a no-op wrapper.
 
 ### Trigger.dev Task Pattern
 
@@ -168,13 +171,13 @@ Messages longer than 1950 chars are split at newline boundaries via `splitMessag
 | `GPT_BOT_TOKEN` | Discord bot token for GPT |
 | `COUNCIL_CHANNEL_ID` | Discord channel ID |
 
-**Langfuse vars** (both `.env` and Trigger.dev dashboard):
+**Langfuse vars** (Trigger.dev dashboard only — only tasks use Langfuse):
 
 | Variable | Purpose |
 |---|---|
 | `LANGFUSE_PUBLIC_KEY` | Langfuse project public key |
 | `LANGFUSE_SECRET_KEY` | Langfuse project secret key |
-| `LANGFUSE_BASE_URL` | `https://us.cloud.langfuse.com` |
+| `LANGFUSE_BASEURL` | `https://us.cloud.langfuse.com` (also accepts `LANGFUSE_BASE_URL`) |
 
 **GitHub Secrets**: `TRIGGER_ACCESS_TOKEN` (PAT for CI deploy — NOT the project secret key).
 
