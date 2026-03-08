@@ -48,7 +48,7 @@ src/
 │   └── discord.ts                      # Discord REST API helpers
 ├── trigger/
 │   ├── lib/
-│   │   └── langfuse.ts                 # Langfuse traceLLM wrapper (uses @langfuse/tracing observe)
+│   │   └── langfuse.ts                 # traceLLM wrapper (OTel spans with gen_ai attributes)
 │   └── council/
 │       ├── orchestrate.ts              # Full debate orchestrator
 │       ├── call-gemini.ts              # Gemini LLM call task
