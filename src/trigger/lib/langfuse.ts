@@ -28,7 +28,10 @@ export async function traceLLM(
   const lf = getLangfuse();
   if (!lf) return fn();
 
-  const trace = lf.trace({ name });
+  const trace = lf.trace({
+    name,
+    input: input ? input.slice(0, 10_000) : undefined,
+  });
   const generation = trace.generation({
     name,
     input: input ? input.slice(0, 10_000) : undefined, // cap to avoid huge payloads
@@ -44,6 +47,10 @@ export async function traceLLM(
         input: result.inputTokens ?? undefined,
         output: result.outputTokens ?? undefined,
       },
+    });
+
+    trace.update({
+      output: result.response.slice(0, 10_000),
     });
 
     await lf.flushAsync();
