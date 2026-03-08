@@ -48,7 +48,7 @@ src/
 │   └── discord.ts                      # Discord REST API helpers
 ├── trigger/
 │   ├── lib/
-│   │   └── langfuse.ts                 # Langfuse observability (init, flush, traceLLM)
+│   │   └── langfuse.ts                 # Langfuse traceLLM wrapper (uses @langfuse/tracing observe)
 │   └── council/
 │       ├── orchestrate.ts              # Full debate orchestrator
 │       ├── call-gemini.ts              # Gemini LLM call task
@@ -61,6 +61,7 @@ web/
 ├── index.html                          # Start debate + browse history
 ├── session.html                        # View debate transcript
 └── style.css                           # Dark theme design system
+trigger.config.ts                         # Trigger.dev config (telemetry, dirs, maxDuration)
 ```
 
 ## Key Implementation Details
@@ -102,6 +103,19 @@ Cost estimation is client-side only (in `web/session.html`), not stored in DB. R
 - Claude Sonnet 4.6: $3/M input, $15/M output
 - Grok-4: $3/M input, $15/M output
 - GPT-4o: $2.50/M input, $10/M output
+
+### Langfuse Observability
+
+LLM calls are traced via Langfuse using Trigger.dev's native OpenTelemetry telemetry. This avoids the NodeSDK conflict that occurs when using Langfuse's own `NodeSDK` alongside Trigger.dev's built-in OTel setup.
+
+**How it works:**
+- `trigger.config.ts` configures an `OTLPTraceExporter` wrapped in a **filtering exporter** that only forwards LLM-related spans (from `ai-council` tracer or OpenInference instrumentations). This filters out Trigger.dev internal noise (heartbeats, `runs.list()` polling, attempt tracking).
+- `src/trigger/lib/langfuse.ts` exports `traceLLM(name, fn, input?)` — creates an OTel span via `@opentelemetry/api` with `gen_ai.*` attributes (model, tokens) and OpenInference attributes (`input.value`, `output.value`) so Langfuse displays each call as an LLM generation.
+- All 5 task files pass the prompt text to `traceLLM()` so input content appears in Langfuse.
+- Auto-instrumentation via OpenInference: `AnthropicInstrumentation` (Claude) and `OpenAIInstrumentation` (GPT + Grok) add detailed SDK-level child spans.
+- Gemini has no auto-instrumentation (no JS package exists) — relies on `traceLLM` attributes only.
+
+Langfuse is optional — if `LANGFUSE_SECRET_KEY` is not set, no exporters are configured and tracing is a no-op.
 
 ### Trigger.dev Task Pattern
 

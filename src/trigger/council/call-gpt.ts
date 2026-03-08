@@ -7,8 +7,10 @@ export const callGpt = task({
   run: async (payload: { prompt: string; systemInstruction: string }) => {
     const start = Date.now();
     const client = createLLMClient("gpt");
-    const result = await traceLLM("council-gpt", () =>
-      client.generate(payload.prompt, payload.systemInstruction)
+    const result = await traceLLM(
+      "council-gpt",
+      () => client.generate(payload.prompt, payload.systemInstruction),
+      payload.prompt
     );
     const durationMs = Date.now() - start;
 

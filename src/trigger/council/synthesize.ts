@@ -42,8 +42,10 @@ export const synthesize = task({
     const start = Date.now();
     const client = createLLMClient(payload.synthesizer);
     const prompt = buildSynthesisPrompt(payload.question, payload.allRounds);
-    const result = await traceLLM(`council-synthesize-${payload.synthesizer}`, () =>
-      client.generate(prompt, SYNTHESIS_SYSTEM)
+    const result = await traceLLM(
+      `council-synthesize-${payload.synthesizer}`,
+      () => client.generate(prompt, SYNTHESIS_SYSTEM),
+      prompt
     );
     const durationMs = Date.now() - start;
 
