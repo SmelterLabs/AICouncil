@@ -10,15 +10,15 @@
     "start": "node dist/server.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.78.0",
+    "@anthropic-ai/sdk": "^0.80.0",
     "@arizeai/openinference-instrumentation-anthropic": "^0.1.7",
     "@arizeai/openinference-instrumentation-openai": "^4.0.5",
-    "@google/genai": "^1.43.0",
-    "@supabase/supabase-js": "^2.49.0",
-    "@trigger.dev/sdk": "4.4.1",
+    "@google/genai": "^1.46.0",
+    "@supabase/supabase-js": "^2.99.3",
+    "@trigger.dev/sdk": "^4.4.3",
     "express": "^4.21.0",
     "langfuse": "^3.38.6",
-    "openai": "^6.25.0",
+    "openai": "^6.32.0",
     "uuid": "^11.0.0"
   },
   "devDependencies": {
