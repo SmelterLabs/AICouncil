@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import {
   CouncilSession,
   CouncilRound,
+  CouncilMember,
   SessionStatus,
   RoundRole,
   SessionWithRounds,
@@ -121,6 +122,30 @@ export async function listSessions(
   };
 }
 
+// Count how many completed sessions each candidate has chaired. Used for
+// rotation-with-recusal chairman selection — pick the candidate with the
+// lowest chairman count to keep the load even over time.
+export async function getChairmanCounts(
+  candidates: CouncilMember[]
+): Promise<Record<CouncilMember, number>> {
+  const { data, error } = await supabase
+    .from("council_sessions")
+    .select("synthesizer")
+    .in("synthesizer", candidates)
+    .eq("status", "completed");
+  if (error)
+    throw new Error(`Failed to get chairman counts: ${error.message}`);
+
+  const counts: Record<string, number> = Object.fromEntries(
+    candidates.map((m) => [m, 0])
+  );
+  for (const row of data ?? []) {
+    const s = (row as { synthesizer: string | null }).synthesizer;
+    if (s && s in counts) counts[s]++;
+  }
+  return counts as Record<CouncilMember, number>;
+}
+
 export async function insertRound(
   sessionId: string,
   roundNumber: number,
@@ -131,7 +156,8 @@ export async function insertRound(
   modelId: string,
   durationMs: number,
   inputTokens?: number,
-  outputTokens?: number
+  outputTokens?: number,
+  confidence?: number | null
 ): Promise<string> {
   const id = uuidv4();
   const { error } = await supabase.from("council_rounds").insert({
@@ -146,6 +172,7 @@ export async function insertRound(
     duration_ms: durationMs,
     input_tokens: inputTokens ?? null,
     output_tokens: outputTokens ?? null,
+    confidence: confidence ?? null,
   });
   if (error) throw new Error(`Failed to insert round: ${error.message}`);
   return id;

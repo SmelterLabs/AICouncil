@@ -47,32 +47,77 @@ Supabase (Postgres)
 
 ## Debate Flow
 
-Fixed 3-round structure. No convergence detection. No streaming.
+Four-round structure (premortem + 3 debate rounds). Chairman is recused from the debate. Round 2 peer review is anonymized. All members are required to web-search before answering. Each round captures self-reported calibrated confidence (0–10). After synthesis, a confidence dispersion diagnostic flags healthy debate vs groupthink.
 
 ```
-Round 1: Independent Answers
-├── All 4 LLMs answer question independently
-    (parallel — none see each other's response)
+Setup (synchronous, fast):
+├── Pick chairman via rotation-with-recusal
+│   ├── Query council_sessions for past synthesizer counts
+│   ├── Pick member with lowest count (random tie-break)
+│   └── For ≥3 members: chairman is recused from debate
+│       For 2 members: both debate, one synthesizes (no recusal)
+│       For 1 member: degenerate — that member answers and synthesizes
+└── debaters = members \ {chairman}  (for ≥3-member councils)
 
-Round 2: Critique
-├── Each LLM receives all other LLMs' Round 1 answers → critiques them
-    (parallel — each sees only others' prior answers)
+Round 0: Premortem (parallel, private)
+├── Each debater independently imagines their eventual answer is wrong
+│   and lists 3 specific ways it could be wrong
+├── Output is NOT shared with peers
+└── Each debater's premortem folds back into THEIR OWN Round 1 prompt only
 
-Round 3: Synthesis
-└── One LLM (rotated) receives ALL prior rounds → produces:
-    - Points of agreement
-    - Points of disagreement with reasoning from each side
-    - Synthesized final answer
-    - Confidence assessment
+Round 1: Independent Answers (parallel)
+├── Debaters answer the question independently
+├── Each is required to search the web for factual claims
+├── Output format is structured:
+│   ANSWER: <text>
+│   CONFIDENCE: <integer 0-10>
+│   EVIDENCE THAT WOULD CHANGE MY ANSWER: <one item>
+└── Confidence is parsed and stored per row
+
+Round 2: Anonymized Critique (parallel, skipped if <2 debaters)
+├── Each debater receives the others' Round 1 answers labeled
+│   as "Response A / B / C" with a per-reviewer-randomized mapping
+├── Structured critique: strongest claim, weakest claim, position update
+├── Closes with: UPDATED CONFIDENCE: <integer 0-10> on Round 1 answer
+└── Mappings are kept in orchestrator memory and annotated onto each
+    critique when passed to the chairman, so the chairman can decode
+    "Response A" references
+
+Round 3: Chairman Synthesis (single call)
+├── Chairman receives full transcript (Round 1 + Round 2)
+├── Round 2 critiques include "(Note for synthesizer: <member> saw
+│   peers as A=<x>, B=<y>...)" annotations so letter references resolve
+├── Structured synthesis output:
+│   1. What the council agrees on (high-confidence signals)
+│   2. Where the council clashes (genuine disagreement, both sides)
+│   3. Weakly evidenced claims (confident hallucinations flagged)
+│   4. Recommendation OR explicit non-convergence flag
+│   5. Confidence (0-10)
+└── Chairman is explicitly told a flagged non-resolution is more useful
+    than a confident wrong verdict.
+
+Post-synthesis: Confidence Dispersion Diagnostic
+├── Aggregate Round 1 and Round 2 confidences across debaters
+├── Compute mean + stddev (dispersion) for each round
+├── Flag:
+│   🟢 Healthy: mean dropped + dispersion held/widened (doubt surfaced)
+│   🔴 Groupthink: mean rose + dispersion narrowed (false convergence)
+│   🟡 Mixed: one signal moved, one didn't
+│   ⚪ Insufficient: <2 confidences parsed per round
+└── Posted to Discord as a footer message after the synthesis.
 ```
 
-**Debate framing (light, no personas):** Each LLM uses its natural reasoning style. The only system prompt framing is:
-```
-You are participating in a structured debate with another AI.
-Critique honestly, concede when the other side is right, and focus on reaching the best answer.
-```
+**Debate framing (no personas, anti-hallucination):** Each LLM uses its natural reasoning style — cross-vendor diversity is the point, not persona overlays. The system prompt focuses on assertion discipline:
 
-No artificial personality overlays. No "you are analytical" or "you are creative." The natural differences between the LLMs are the point.
+- Distinguish what you know from what you're guessing
+- Mark uncertain claims as uncertain rather than inventing specifics
+- Cite sources for factual claims when possible
+- Say "based on my training data" rather than asserting as fact
+- Be useful, not "win" — concede when peers are right
+
+The current full system prompt is in `src/trigger/council/orchestrate.ts` as `DEBATE_SYSTEM`. The synthesizer's system prompt is separate (in `src/trigger/council/synthesize.ts` as `SYNTHESIS_SYSTEM`) and instructs the chairman to treat assertions skeptically and prefer flagging non-resolution over forcing a verdict.
+
+**Research backing (added 2026-05-26):** The premortem, anonymization, chairman recusal, structured synthesis rubric, and dispersion diagnostic come from a research review documented at `c:/Users/casey/OneDrive/AI/ClaudeCode/Home Base/research/council-improvements/findings.md`. Key citations: arxiv 2510.07517 (anonymization, 96% identity-bias reduction), arxiv 2508.01545 (Big-Muddy, 99.2% peer escalation without premortem), arxiv 2505.19184 (confidence escalates 72.9% → 83% across rounds), arxiv 2410.04663 (D3 chairman pattern), Karpathy's llm-council (anonymization + designated chairman pattern).
 
 ## Project Structure
 
@@ -187,15 +232,16 @@ Cloud Postgres via Supabase free tier. Both the Express server (Railway) and Tri
 |---|---|---|
 | `id` | uuid (PK) | Round entry ID |
 | `session_id` | uuid NOT NULL (FK) | Parent session |
-| `round_number` | integer NOT NULL | 1 = independent, 2 = critique, 3 = synthesis |
+| `round_number` | integer NOT NULL | 0 = premortem, 1 = independent answer, 2 = critique, 3 = synthesis |
 | `member` | text NOT NULL | `gemini`, `claude`, etc. |
-| `role` | text NOT NULL | `answer`, `critique`, `synthesize` |
+| `role` | text NOT NULL | `premortem`, `answer`, `critique`, `synthesize` |
 | `prompt` | text NOT NULL | Full prompt sent to LLM (for reproducibility) |
 | `response` | text NOT NULL | The LLM's response |
 | `model_id` | text NOT NULL | Exact model ID used |
 | `duration_ms` | integer NOT NULL | Time for this LLM call |
 | `input_tokens` | integer | Input tokens used (nullable for old rows) |
 | `output_tokens` | integer | Output tokens used (nullable for old rows) |
+| `confidence` | integer | Member's self-reported calibrated confidence 0–10 (added 2026-05-26; nullable if parsing failed or role doesn't request confidence) |
 | `created_at` | timestamptz | When this round completed (default: now()) |
 
 **UNIQUE constraint:** `(session_id, round_number, member)` — one response per member per round per session.
@@ -250,14 +296,19 @@ This is ~10 lines in bot.ts. All debate logic, bot management, and posting lives
 
 - **LLM client interface** — `llm-client.ts` exports a unified interface: `generate(prompt, systemInstruction) → response`. Each LLM has a factory function. Adding Phase 2 LLMs = adding a new case.
 - **One task per LLM call** — Each invocation is a separate Trigger.dev task (`call-gemini`, `call-claude`, `call-grok`, `call-gpt`). Per-call observability, independent retry, isolated failure.
-- **Orchestrator pattern** — `council-orchestrate` coordinates the full debate using `tasks.triggerAndWait()` for child tasks. Sequential by round, parallel within each round.
-- **No personas** — LLMs use their natural reasoning style. Only light debate framing is injected. No character assignments.
+- **Orchestrator pattern** — `council-orchestrate` coordinates the full debate using `batch.triggerByTaskAndWait()` for parallel rounds (premortem, Round 1, Round 2) and `tasks.triggerAndWait()` for the single synthesis call. Sequential by round, parallel within each round.
+- **No personas** — LLMs use their natural reasoning style. The system prompt focuses on assertion discipline (admit uncertainty, cite sources, mark guesses as guesses), not character overlays. Cross-vendor diversity is the diversity source.
 - **Batch responses only** — No streaming. Each LLM call returns a complete response. Discord posts happen after each round completes.
 - **Message splitting** — Discord caps at 2000 chars. Split long responses at newline boundaries (same pattern as Discord Bot's `splitMessage()`).
 - **DB writes after each round** — The orchestrator writes to Supabase after each round. If a write fails, the debate continues. The database is for history, not orchestration state.
-- **Synthesizer rotation** — Round 3 synthesizer alternates between members. Tracked in `council_sessions.synthesizer`.
+- **Chairman selection — rotation with recusal** — At the start of each debate, the orchestrator queries past completed sessions and picks the member with the lowest synthesizer count as chairman (random tie-break). For ≥3-member councils the chairman is **recused from the debate** — they only see the debate at synthesis time. The synthesizer field is written to `council_sessions` immediately at chairman selection (not at end), so rotation counts stay clean even if synthesis fails. (Previous implementation used `Date.now() % members.length`, which was effectively random rather than rotation.)
+- **Anonymized peer review** — Round 2 prompts label peer answers as "Response A / B / C" with a per-reviewer-randomized mapping. Mappings are kept in orchestrator memory and annotated onto each critique when passed to the chairman so the chairman can decode the letter references. Identity anonymization is from arxiv 2510.07517 (96% identity-bias reduction).
+- **Premortem round** — Before Round 1, each debater independently writes 3 specific ways their eventual answer could be wrong. Output is private (not shared with peers) and folds back into that debater's own Round 1 prompt. Stored as round 0 in the DB for inspection. Klein's premortem research: doubles risks identified.
+- **Forced web search on Round 1** — Round 1 prompt explicitly instructs each debater to search the web for factual claims before answering. Closes the asymmetric-grounding gap where some models would search heavily and others would answer from training data alone.
+- **Calibrated confidence + dispersion diagnostic** — Round 1 and Round 2 prompts require a `CONFIDENCE: <0-10>` line. The orchestrator parses these and stores them in `council_rounds.confidence`. After synthesis, the orchestrator computes mean + stddev across debaters for both rounds and posts a 🟢/🔴/🟡/⚪ flag to Discord (healthy / groupthink / mixed / insufficient data). Confidence levels themselves are noisy (LLM-stated confidence escalates 72.9% → 83% per arxiv 2505.19184); the diagnostic watches change in mean and dispersion, not absolute levels.
 - **Token/cost tracking** — Each LLM call captures `input_tokens` and `output_tokens` from the SDK response, stored in `council_rounds`. Cost estimation is client-side in the web frontend (not stored in DB).
-- **Structured critique** — Round 2 prompts force each LLM to identify the single strongest and weakest claim in each opponent's answer, rather than vague agreement/disagreement.
+- **Structured critique** — Round 2 prompts force each LLM to identify the single strongest and weakest claim in each opponent's anonymized answer, plus state position update + updated confidence — not vague agreement/disagreement.
+- **Structured synthesis** — The chairman is prompted for a 5-section structured output: (1) what the council agrees on, (2) where the council clashes, (3) weakly evidenced claims, (4) recommendation OR explicit non-convergence flag, (5) confidence. The chairman is explicitly permitted to flag non-resolution over producing a forced verdict.
 
 ## Models
 

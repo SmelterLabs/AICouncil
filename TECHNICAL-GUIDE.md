@@ -218,12 +218,26 @@ CREATE TABLE council_rounds (
   duration_ms integer NOT NULL,
   input_tokens integer,
   output_tokens integer,
+  confidence integer,
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (session_id, round_number, member)
 );
 
 CREATE INDEX idx_rounds_session ON council_rounds(session_id);
 ```
+
+### Migration for existing databases (added 2026-05-26)
+
+If `council_rounds` already exists from a prior deploy, run this migration in the Supabase SQL editor before deploying the post-2026-05-26 orchestrator:
+
+```sql
+-- Adds the confidence column used by Round 1, Round 2, and Round 3 (synthesis)
+-- to store member-reported calibrated confidence (0–10) per row. Nullable
+-- because older rows pre-date the column and because parsing can fail.
+ALTER TABLE council_rounds ADD COLUMN IF NOT EXISTS confidence integer;
+```
+
+The migration is non-destructive — existing rows keep `NULL` in the new column, and the application gracefully handles rows without confidence values. Apply the migration **before** the next git push to master, since the new orchestrator code writes the column and will fail on inserts against the old schema.
 
 ## Build
 
