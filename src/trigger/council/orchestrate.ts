@@ -53,6 +53,23 @@ function parseConfidence(text: string): number | null {
   return n;
 }
 
+// Extract only the PREMORTEM 1/2/3 lines from a model response. Some models
+// over-complete the premortem call by also drafting a full answer; this
+// sanitizer bounds the leakage into Round 1 by keeping ONLY the premortem
+// lines. If no premortem lines match, returns empty string (the orchestrator
+// treats empty premortem as graceful degradation, not a failure).
+function sanitizePremortem(text: string): string {
+  if (!text) return "";
+  const lines = text.split(/\r?\n/);
+  const kept: string[] = [];
+  for (const line of lines) {
+    if (/^\s*(?:\*\*)?PREMORTEM\s+[123]\s*(?:\*\*)?\s*:/i.test(line)) {
+      kept.push(line.trim());
+    }
+  }
+  return kept.join("\n");
+}
+
 // Compute the confidence dispersion diagnostic. Mirrors the Hermes-Council
 // design: compares pre-critique (Round 1) vs post-critique (Round 2) mean +
 // dispersion across debaters. Healthy debate surfaces doubt (mean drops,
@@ -200,9 +217,11 @@ export const orchestrate = task({
       // Klein's research: doubles risks identified, +30% failure-identification.
       // Big-Muddy (arxiv 2508.01545): 99.2% positional-commitment escalation in
       // symmetric peer setups WITHOUT premortem.
-      const premortemPrompt = `Question: ${question}\n\nBefore you write your final answer, take 60 seconds to think about how your eventual answer could be wrong. Imagine you state an answer, and a year from now you discover it was meaningfully wrong. What are 3 specific, distinct ways it could have been wrong?\n\nList them as PREMORTEM 1, PREMORTEM 2, PREMORTEM 3 — each in one sentence. Be concrete: "I might have assumed X when actually Y" rather than "I might be wrong."\n\nThis is for your private use as you formulate your real answer. No other model will see it.`;
+      const premortemPrompt = `Question: ${question}\n\nThis is the PREMORTEM phase. Your only job in this call is to list 3 specific, distinct ways your eventual answer to this question could be wrong. You will write the actual answer in a SEPARATE call after this one — not now.\n\nImagine you have already answered the question, and a year from now you discover the answer was meaningfully wrong. What are 3 specific, distinct ways it could have been wrong?\n\nOutput EXACTLY three lines, in this exact format, with NO preamble, NO answer, NO analysis, NO web search:\n\nPREMORTEM 1: <one sentence, concrete: "I might have assumed X when actually Y", not "I might be wrong">\nPREMORTEM 2: <one sentence, concrete and distinct from #1>\nPREMORTEM 3: <one sentence, concrete and distinct from #1 and #2>\n\nDo NOT write your answer to the original question here. Do NOT search the web. Do NOT add summary, conclusion, or any content beyond the three PREMORTEM lines. The actual answer is a separate call after this one.`;
 
-      const premortemSystem = `You are about to participate in a multi-model debate. Before writing your answer, you are running a premortem — imagining ways your eventual answer could be wrong. This is private; it is not shared with the other models. Use it to inform your real answer with appropriate caution.`;
+      const premortemSystem = `You are in the PREMORTEM phase of a multi-model debate. Your ONLY output is 3 PREMORTEM lines in the exact format specified — nothing else.
+
+Critical: do NOT draft the answer in this call. Do NOT search the web. Do NOT write any content beyond the three PREMORTEM lines. You will produce your actual answer in a separate call after this one. Over-producing here breaks the protocol — the premortem must precede position-taking, not co-occur with it.`;
 
       const premortemBatch = await batch.triggerByTaskAndWait(
         debaters.map((member) => ({
@@ -223,7 +242,12 @@ export const orchestrate = task({
           premortemResponses[member] = "";
           continue;
         }
-        premortemResponses[member] = result.output.response;
+        // Store sanitized version (PREMORTEM lines only) for Round 1 prompt,
+        // but persist the full raw response in the DB for inspection. Some
+        // models over-complete the premortem call by drafting a full answer;
+        // we keep their raw output as evidence but only feed the PREMORTEM
+        // lines forward so position-taking happens in Round 1, not here.
+        premortemResponses[member] = sanitizePremortem(result.output.response);
         await insertRound(
           sessionId,
           0,
