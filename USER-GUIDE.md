@@ -109,7 +109,7 @@ Visit the web UI homepage to see a list of all past debates with their status, d
 
 | Member | Model | Strengths |
 |---|---|---|
-| Gemini | gemini-3.1-pro-preview | Google Search grounding for real-time info |
+| Gemini | gemini-2.5-pro | Google Search grounding for real-time info |
 | Claude | claude-sonnet-4-6 | Nuanced reasoning, web search |
 | Grok | grok-4 | Direct style, web search |
 | GPT | gpt-4o | Broad knowledge, web search |
@@ -118,7 +118,7 @@ All 4 models have web search enabled, so they can look up current information wh
 
 ## Cost
 
-- **Gemini** — Free (Google AI Studio tier)
+- **Gemini** — ~$1.25/M input tokens, ~$10/M output tokens
 - **Claude** — ~$3/M input tokens, ~$15/M output tokens
 - **Grok** — ~$3/M input tokens, ~$15/M output tokens
 - **GPT** — ~$2.50/M input tokens, ~$10/M output tokens
