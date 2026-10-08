@@ -14,10 +14,10 @@ export interface LLMClient {
   generate(prompt: string, systemInstruction: string): Promise<LLMResponse>;
 }
 
-const GEMINI_MODEL = "gemini-2.5-pro";
-const CLAUDE_MODEL = "claude-sonnet-4-6";
-const GROK_MODEL = "grok-4";
-const GPT_MODEL = "gpt-4o";
+const GEMINI_MODEL = "gemini-3.1-pro-preview";
+const CLAUDE_MODEL = "claude-sonnet-5-5";
+const GROK_MODEL = "grok-4.7";
+const GPT_MODEL = "gpt-6-astra";
 
 function createGeminiClient(): LLMClient {
   const ai = new GoogleGenAI({
@@ -57,10 +57,10 @@ function createClaudeClient(): LLMClient {
     async generate(prompt, systemInstruction) {
       const message = await anthropic.messages.create({
         model: CLAUDE_MODEL,
-        max_tokens: 4096,
+        max_tokens: 16000,
         system: systemInstruction,
         messages: [{ role: "user", content: prompt }],
-        tools: [{ type: "web_search_20250305", name: "web_search" }],
+        tools: [{ type: "web_search_20260209", name: "web_search" }],
       });
 
       const response = message.content
