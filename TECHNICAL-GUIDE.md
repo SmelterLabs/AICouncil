@@ -1,5 +1,7 @@
 # AI Council — Technical Guide
 
+> ⚠️ **Not actively maintained.** The model IDs below were refreshed in the code on 2026-10-08 (commit 42a2ca0, "Council models to current generation"); the rest of the project is still not actively maintained. That commit is parked on Casey's call about pushing to the public repo, so it is unconfirmed whether the deployed Trigger.dev/Railway runtime uses the new models yet. `src/lib/llm-client.ts` is the source of truth for model IDs; per-model rates are not recorded here.
+
 ## Quick Start
 
 ```bash
@@ -22,7 +24,7 @@ REST API (Express, port 3001)
   │
   ▼
 Trigger.dev Tasks
-  ├── council-orchestrate   → runs full 3-round debate
+  ├── council-orchestrate   → runs full 4-round debate (premortem → answers → anonymized critique → chairman synthesis)
   ├── council-call-gemini   → single Gemini API call
   ├── council-call-claude   → single Claude API call
   ├── council-call-grok     → single Grok API call
@@ -84,10 +86,12 @@ interface LLMClient {
 ```
 
 Factory function `createLLMClient(member)` returns the appropriate client. Models:
-- Gemini: `gemini-2.5-pro` — uses `@google/genai` SDK (v1.x) with Google Search grounding (`googleSearch` tool)
-- Claude: `claude-sonnet-4-6` — with web search (`web_search_20250305` server tool)
-- Grok: `grok-4` — xAI API via `openai` SDK with `baseURL: "https://api.x.ai/v1"`, Responses API with `web_search` tool
-- GPT: `gpt-4o` — OpenAI API via `openai` SDK, Responses API with `web_search_preview` tool
+- Gemini: `gemini-3.8-flash` — uses `@google/genai` SDK (v1.x) with Google Search grounding (`googleSearch` tool). Google ships no 3.8 Pro; 3.8 Flash is the newest stable Gemini text model.
+- Claude: `claude-fable-5-1` — `max_tokens` 16000, with web search (`web_search_20260209` server tool)
+- Grok: `grok-4.7` — xAI API via `openai` SDK with `baseURL: "https://api.x.ai/v1"`, Responses API with `web_search` tool
+- GPT: `gpt-6-astra` — OpenAI API via `openai` SDK, Responses API with `web_search_preview` tool
+
+(These are the IDs in the code as of 2026-10-08, commit 42a2ca0; see the banner at the top for the deployment caveat.)
 
 All models have real-time web search always enabled. The models decide when to actually search based on the question — no manual toggling needed. Grok and GPT both use the `openai` npm package (xAI's API is OpenAI-compatible).
 
@@ -98,11 +102,7 @@ Each LLM call captures `input_tokens` and `output_tokens` from the SDK response,
 - Claude: `message.usage.input_tokens` / `output_tokens`
 - Grok/GPT: `response.usage.input_tokens` / `output_tokens` (OpenAI Responses API format)
 
-Cost estimation is client-side only (in `web/session.html`), not stored in DB. Rates:
-- Gemini 2.5 Pro: $1.25/M input, $10/M output
-- Claude Sonnet 4.6: $3/M input, $15/M output
-- Grok-4: $3/M input, $15/M output
-- GPT-4o: $2.50/M input, $10/M output
+Cost estimation is client-side only (in `web/session.html`), not stored in DB. Per-model rates are not recorded in this guide (the models changed 2026-10-08); read them from `web/session.html` or the providers' pricing pages.
 
 ### Langfuse Observability
 
@@ -120,12 +120,33 @@ LLM calls are traced to Langfuse using the **Langfuse JS SDK directly** (`langfu
 
 Langfuse is optional — if `LANGFUSE_SECRET_KEY` is not set, `traceLLM()` is a no-op wrapper.
 
+#### Querying AICouncil traces from CC (access reference)
+
+AICouncil is the **only** Casey-owned service whose traces live on Langfuse **Cloud** (`us.cloud.langfuse.com`). Langfuse production (`hb-lf-stage`) now runs on Forge; `bigbox:3000` is a compatibility forward during legacy-caller retirement. AICouncil remains on Cloud because Trigger.dev's managed-cloud workers cannot reach the private self-hosted endpoint. (Migration to self-hosted was scoped + rejected 2026-05-26 — it would need a public exposure layer with ongoing TLS/auth upkeep. If AICouncil compute ever moves off Trigger.dev managed cloud, revisit.)
+
+CC-side query keys live in **Bitwarden Secrets Manager** (separate from the Trigger.dev-dashboard runtime keys above): `LANGFUSE_PUBLIC_KEY_AICOUNCIL` (`pk-lf-...`) + `LANGFUSE_SECRET_KEY_AICOUNCIL` (`sk-lf-...`), added 2026-05-26 by pulling via `npx trigger.dev@latest env get`. Host is hardcoded `https://us.cloud.langfuse.com`.
+
+```powershell
+$env:BWS_ACCESS_TOKEN = (Get-Content C:\Users\casey\.bws_pc_token -Raw).Trim()
+$HELPER = "C:\Users\casey\.claude\skills\bitwarden-api-keys\scripts\get-id-by-name.ps1"
+$PUB = (& bws secret get (& $HELPER -KeyName LANGFUSE_PUBLIC_KEY_AICOUNCIL) --output json | ConvertFrom-Json).value
+$SEC = (& bws secret get (& $HELPER -KeyName LANGFUSE_SECRET_KEY_AICOUNCIL) --output json | ConvertFrom-Json).value
+$b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("${PUB}:${SEC}"))
+$headers = @{ Authorization = "Basic $b64" }
+Invoke-RestMethod -Uri "https://us.cloud.langfuse.com/api/public/traces?limit=50" -Headers $headers
+```
+
+(`jq` isn't on PC bash — use PowerShell for JSON.)
+
+**Trace naming:** each LLM call is its own trace, `sessionId` is null. Names: `council-gemini` / `council-claude` / `council-grok` / `council-gpt` (premortem / R1 / R2 — round inferred by timestamp order) and `council-synthesize-<member>` (R3 synthesis; member = chairman). A standard 4-member debate = 10 traces (3 premortem + 3 R1 + 3 R2 + 1 synthesis; chairman recused from premortem/R1/R2). To map a debate → chairman + status, query the `council_sessions` row: `GET https://aicouncil-production-2677.up.railway.app/council/<sessionId>` (more reliable than parsing trace names). Note: no Langfuse MCP is configured on this machine — query through the `langfuse` skill (CLI) or the REST call above. AICouncil is on **Langfuse Cloud**; Langfuse production (`hb-lf-stage`) runs on Forge at `:3000`; `bigbox:3000` is a compatibility forward while legacy callers retire, with different keys.
+
 ### Trigger.dev Task Pattern
 
 Each LLM call is a separate task for independent retry and observability. The orchestrator uses `batch.triggerByTaskAndWait()` for parallel calls and `tasks.triggerAndWait()` for sequential calls:
-- Round 1: parallel via `batch.triggerByTaskAndWait()`
-- Round 2: parallel via `batch.triggerByTaskAndWait()`
-- Round 3: single `tasks.triggerAndWait()` call
+- Round 0 (private premortem): parallel via `batch.triggerByTaskAndWait()`
+- Round 1 (independent answers): parallel via `batch.triggerByTaskAndWait()`
+- Round 2 (anonymized critique): parallel via `batch.triggerByTaskAndWait()`
+- Round 3 (chairman synthesis — chairman recused from Rounds 0–2 in ≥3-member councils): single `tasks.triggerAndWait()` call
 
 **Important:** Trigger.dev does NOT support `Promise.all()` around `triggerAndWait()` — it throws "Parallel waits are not supported". Always use `batch.triggerByTaskAndWait()` for parallel task execution.
 
@@ -228,7 +249,7 @@ CREATE INDEX idx_rounds_session ON council_rounds(session_id);
 
 ### Migration for existing databases (added 2026-05-26)
 
-If `council_rounds` already exists from a prior deploy, run this migration in the Supabase SQL editor before deploying the post-2026-05-26 orchestrator:
+If `council_rounds` pre-dates 2026-05-26, run:
 
 ```sql
 -- Adds the confidence column used by Round 1, Round 2, and Round 3 (synthesis)
@@ -237,7 +258,7 @@ If `council_rounds` already exists from a prior deploy, run this migration in th
 ALTER TABLE council_rounds ADD COLUMN IF NOT EXISTS confidence integer;
 ```
 
-The migration is non-destructive — existing rows keep `NULL` in the new column, and the application gracefully handles rows without confidence values. Apply the migration **before** the next git push to master, since the new orchestrator code writes the column and will fail on inserts against the old schema.
+Applied to production (a 2026-06-05 session stores confidence values). Only relevant when restoring a database created before 2026-05-26; non-destructive, existing rows keep NULL.
 
 ## Build
 
@@ -247,12 +268,12 @@ Always use `npm run build` to verify TypeScript compiles — NOT `npx tsc --noEm
 
 | Method | How |
 |---|---|
-| Claude Code (any project) | `/user:council <question>` — global command at `~/.claude/commands/council.md` |
-| Discord | `!council <question>` via ChemAI bot |
+| Claude Code (any project) | `/council <question>` — global command at `~/.claude/commands/council.md` |
+| Discord | ~~`!council <question>` via ChemAI bot~~ — **retired 2026-08-22** (the bot and its Discord application were deleted) |
 | Web UI | Form at `https://aicouncil-production-2677.up.railway.app` |
 | curl / API | `POST /council` with `{"question":"..."}` |
 
-The `/user:council` command is a global Claude Code slash command — it works from any project, not just this one. It calls the production Railway API directly.
+The `/council` command is a global Claude Code slash command — it works from any project, not just this one. It calls the production Railway API directly.
 
 ### Member Selection
 
@@ -260,19 +281,19 @@ By default all 4 members run. To run specific members only:
 
 | Method | Syntax |
 |---|---|
-| Claude Code | `/user:council @gemini @claude Is AI overhyped?` |
+| Claude Code | `/council @gemini @claude Is AI overhyped?` |
 | Web UI | Uncheck members in the form before starting |
 | curl / API | `POST /council` with `{"question":"...", "members": ["gemini", "claude"]}` |
-| Discord | Not yet implemented |
+| Discord | Retired 2026-08-22 — no Discord trigger exists |
 
 The backend already supports the `members` array in `POST /council`. The slash command parses `@member` tags and strips them from the question. The web UI uses checkboxes (all checked by default).
 
 ## Gotchas
 
 - **Gemini SDK**: Uses `@google/genai` (v1.x), NOT the legacy `@google/generative-ai` (v0.x). New SDK API: `ai.models.generateContent({ model, contents, config: { systemInstruction, tools } })`, response text via `result.text` (property, not method). **Important:** The new SDK defaults to 5 retry attempts with exponential backoff on 503s — configure `httpOptions: { timeout, retryOptions: { attempts: 2 } }` to avoid burning through the Trigger.dev maxDuration on transient 503 errors.
-- **Gemini model**: Using `gemini-2.5-pro` (stable GA). Switched from `gemini-3.1-pro-preview` which had extended 503 outages (24+ hours) in March 2026. Preview models are unreliable for production — prefer GA models.
+- **Gemini model**: The code uses `gemini-3.1-pro-preview` again (since 2026-10-08, commit 42a2ca0). It was earlier switched to `gemini-2.5-pro` (GA) because the 3.1 preview had extended 503 outages (24+ hours) in March 2026. Preview models can be unreliable for production, so the retry-limit setting above (`retryOptions: { attempts: 2 }`) still matters; if 503s return, fall back to a GA model.
 - `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` must be set in BOTH `.env` (Express/Railway) AND Trigger.dev dashboard — both environments need database access
 - Discord threads have a 100-char name limit — `createThread()` truncates automatically
 - The orchestrator writes to Supabase after each round, but if a DB write fails the debate continues — the database is for history, not orchestration state
-- Synthesizer rotation uses `Date.now() % members.length` — simple but non-deterministic. Fine for 2 members.
+- Synthesizer rotation (pre-2026-05-26): the original implementation used `Date.now() % members.length` — effectively random. Replaced 2026-05-26 by rotation-with-recusal (lowest past synthesizer count wins; chairman recused from debating in ≥3-member councils). See CLAUDE.md → Key Patterns.
 - All db functions are async — always `await` them
