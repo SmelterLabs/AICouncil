@@ -72,6 +72,10 @@ trigger.config.ts                         # Trigger.dev config (telemetry, dirs,
 
 Uses Supabase free tier as a shared cloud database. Both the Express server (Railway) and Trigger.dev tasks (cloud) connect to the same Postgres instance via `@supabase/supabase-js`.
 
+Production is the personal Russell organization's project `fkaawrrlhxcmzhhvgdmf` (provider display name: UNICOM Target Qualifier), also consumed by the older qualifier app. Do not confuse it with the separate active UTQ project `djbipzfrrgxerpcvwvoz`. The canonical modern service-role key is BWS AI Keys `SUPABASE_SECRET_KEY_AICOUNCIL`, record `06b3be08-bd55-44c2-b4c5-b4f100228101`; inject it as `SUPABASE_SERVICE_ROLE_KEY` in Railway, Trigger prod and local `.env`. Never substitute a JWT-signing rotation for this modern API key.
+
+A paused free project can lose DNS and report an empty key list. With explicit restoration authority, verify ownership/free plan and supported restore versions before the provider's paused-project resume; never recreate/migrate the database as a recovery shortcut. Verify existing sessions via `GET /council?limit=1` and `GET /council/:id`, not the shallow `/health`. New `POST /council` debates incur model usage and Discord posts, so are not a free smoke test. Recovery evidence and exact deployed commit are in `journal/2026-10-27-database-recovery.md`.
+
 No initialization step required — the Supabase client connects on first use. All db functions in `src/lib/db.ts` are async.
 
 Tables must be created in Supabase dashboard (or via SQL editor) before first use. See CLAUDE.md for the full schema.
