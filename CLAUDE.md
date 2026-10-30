@@ -6,16 +6,16 @@ A structured debate engine where multiple LLMs independently answer a question, 
 
 **4 LLMs:** Gemini, Claude, Grok, GPT.
 
-**Core loop:** Question → Round 1 (independent answers) → Round 2 (mutual critique) → Round 3 (synthesis) → Final answer posted to Discord + stored in Supabase.
+**Core loop:** Question → Premortem → Round 1 (independent answers) → Round 2 (mutual critique) → Round 3 (synthesis) → Final answer posted to Discord + stored in Supabase.
 
 ## Relationship to Other Projects
 
-AI Council is a **standalone project** — a sibling to the [ChemAI Discord Bot](../Discord%20Bot/), not embedded within it.
+AI Council is a **standalone project** — it was a sibling to the ChemAI Discord Bot (**retired 2026-08-22** — the ChemAI Discord bot, its Discord application, Railway service, Trigger.dev project, and GitHub repo were all deleted; the `Discord Bot/` folder now holds only the unrelated ChemAI Web Clipper record), never embedded within it.
 
-- **Discord Bot triggers debates** — `!council <question>` in ChemAI's bot.ts calls this project's REST API (~10 lines, thin trigger only). All debate logic lives here.
+- **Discord trigger is RETIRED (2026-08-22)** — `!council <question>` used to live in ChemAI's bot.ts as a ~10-line thin trigger calling this project's REST API; the bot no longer exists. Slash command, web UI, and direct `curl` remain the live triggers. All debate logic lives here.
 - **Council bots post results** — This project manages its own Discord bot accounts (one per LLM member) that post debate rounds directly to `#ai-council` as distinct users with separate names/avatars.
-- **No shared database** — Supabase project is dedicated to this project. Completely separate from any other project's storage.
-- **Same Trigger.dev patterns** — Follows the Discord Bot's task architecture: each LLM call is a Trigger.dev task for observability, retry handling, and logging.
+- **Shared Supabase project** — production uses `fkaawrrlhxcmzhhvgdmf`, which the older qualifier app also reads (TECHNICAL-GUIDE → Supabase). Recovery or key rotation there affects both apps.
+- **Trigger.dev task per LLM call** — each LLM call is a Trigger.dev task for observability, retry handling, and logging. (This pattern was inherited from the ChemAI Discord Bot, which no longer exists to compare against.)
 
 ## Architecture
 
@@ -117,7 +117,7 @@ Post-synthesis: Confidence Dispersion Diagnostic
 
 The current full system prompt is in `src/trigger/council/orchestrate.ts` as `DEBATE_SYSTEM`. The synthesizer's system prompt is separate (in `src/trigger/council/synthesize.ts` as `SYNTHESIS_SYSTEM`) and instructs the chairman to treat assertions skeptically and prefer flagging non-resolution over forcing a verdict.
 
-**Research backing (added 2026-05-26):** The premortem, anonymization, chairman recusal, structured synthesis rubric, and dispersion diagnostic come from a research review documented at `c:/Users/casey/OneDrive/AI/ClaudeCode/Home Base/research/council-improvements/findings.md`. Key citations: arxiv 2510.07517 (anonymization, 96% identity-bias reduction), arxiv 2508.01545 (Big-Muddy, 99.2% peer escalation without premortem), arxiv 2505.19184 (confidence escalates 72.9% → 83% across rounds), arxiv 2410.04663 (D3 chairman pattern), Karpathy's llm-council (anonymization + designated chairman pattern).
+**Research backing:** The premortem, anonymization, chairman recusal, structured synthesis rubric, and dispersion diagnostic come from a research review documented at `c:/Users/casey/OneDrive/AI/Obsidian/Archive/council-improvements/findings.md`. Key citations: arxiv 2510.07517 (anonymization, 96% identity-bias reduction), arxiv 2508.01545 (Big-Muddy, 99.2% peer escalation without premortem), arxiv 2505.19184 (confidence escalates 72.9% → 83% across rounds), arxiv 2410.04663 (D3 chairman pattern), Karpathy's llm-council (anonymization + designated chairman pattern).
 
 ## Project Structure
 
@@ -130,8 +130,10 @@ src/
 │   ├── types.ts                           # Shared TypeScript types
 │   └── discord.ts                         # Discord REST API helpers (post as bot)
 ├── trigger/
+│   ├── lib/
+│   │   └── langfuse.ts                    # traceLLM wrapper (Langfuse SDK; no-op if LANGFUSE_SECRET_KEY unset)
 │   └── council/
-│       ├── orchestrate.ts                 # Full debate orchestrator (3 rounds)
+│       ├── orchestrate.ts                 # Full debate orchestrator (4 rounds: premortem + 3)
 │       ├── call-gemini.ts                 # Single Gemini API call task
 │       ├── call-claude.ts                 # Single Claude API call task
 │       ├── call-grok.ts                   # Single Grok API call task
@@ -144,6 +146,10 @@ web/                                       # Static frontend
 └── style.css
 trigger.config.ts                          # Trigger.dev project config
 .github/workflows/deploy.yml              # Trigger.dev deploy on push to master
+docs/
+└── eval-scoring-layer.md                  # Proposal (2026-04-04, status: Idea) — debate evaluation
+                                           #   scoring layer. Not built; nothing else references it.
+dist/                                      # tsc build output — generated, not source
 ```
 
 ## Development
@@ -196,9 +202,11 @@ Everything deploys on `git push` to `master`:
 | `GPT_BOT_TOKEN` | Discord bot token for GPT member |
 | `COUNCIL_CHANNEL_ID` | Discord #ai-council channel ID |
 
+Optional Langfuse vars (`LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` / `LANGFUSE_BASEURL`) — see TECHNICAL-GUIDE → Langfuse Observability.
+
 **GitHub Actions secret**: `TRIGGER_ACCESS_TOKEN` (PAT for deploy CLI)
 
-**Two distinct Trigger.dev credentials (same pattern as Discord Bot):**
+**Two distinct Trigger.dev credentials:**
 - `TRIGGER_SECRET_KEY` — project secret key. Goes in `.env` + Railway. Used at runtime to trigger tasks.
 - `TRIGGER_ACCESS_TOKEN` — Personal Access Token. Goes in GitHub Secrets only. Used by CI deploy. Never needed at runtime.
 
@@ -282,16 +290,6 @@ Each LLM council member is a separate Discord bot with its own token, username, 
 
 **Thread pattern:** Round 1 answers create a new thread in `#ai-council` with the question as title. Round 2 and synthesis post as replies in that thread.
 
-### !council Command (in ChemAI Discord Bot)
-
-The `!council` command lives in the existing Discord Bot's bot.ts as a thin trigger:
-1. User types: `!council What's the best auth strategy?`
-2. ChemAI calls `POST http://<council-api>/council` with the question
-3. ChemAI replies: "Council debate started — watch #ai-council for results."
-4. Council bots post the debate directly. ChemAI does not relay results.
-
-This is ~10 lines in bot.ts. All debate logic, bot management, and posting lives in this project.
-
 ## Key Patterns
 
 - **LLM client interface** — `llm-client.ts` exports a unified interface: `generate(prompt, systemInstruction) → response`. Each LLM has a factory function. Adding Phase 2 LLMs = adding a new case.
@@ -299,9 +297,9 @@ This is ~10 lines in bot.ts. All debate logic, bot management, and posting lives
 - **Orchestrator pattern** — `council-orchestrate` coordinates the full debate using `batch.triggerByTaskAndWait()` for parallel rounds (premortem, Round 1, Round 2) and `tasks.triggerAndWait()` for the single synthesis call. Sequential by round, parallel within each round.
 - **No personas** — LLMs use their natural reasoning style. The system prompt focuses on assertion discipline (admit uncertainty, cite sources, mark guesses as guesses), not character overlays. Cross-vendor diversity is the diversity source.
 - **Batch responses only** — No streaming. Each LLM call returns a complete response. Discord posts happen after each round completes.
-- **Message splitting** — Discord caps at 2000 chars. Split long responses at newline boundaries (same pattern as Discord Bot's `splitMessage()`).
+- **Message splitting** — Discord caps at 2000 chars. Split long responses at newline boundaries.
 - **DB writes after each round** — The orchestrator writes to Supabase after each round. If a write fails, the debate continues. The database is for history, not orchestration state.
-- **Chairman selection — rotation with recusal** — At the start of each debate, the orchestrator queries past completed sessions and picks the member with the lowest synthesizer count as chairman (random tie-break). For ≥3-member councils the chairman is **recused from the debate** — they only see the debate at synthesis time. The synthesizer field is written to `council_sessions` immediately at chairman selection (not at end), so rotation counts stay clean even if synthesis fails. (Previous implementation used `Date.now() % members.length`, which was effectively random rather than rotation.)
+- **Chairman selection — rotation with recusal** — At the start of each debate, the orchestrator queries past completed sessions and picks the member with the lowest synthesizer count as chairman (random tie-break). For ≥3-member councils the chairman is **recused from the debate** — they only see the debate at synthesis time. The synthesizer field is written to `council_sessions` immediately at chairman selection (not at end), so rotation counts stay clean even if synthesis fails.
 - **Anonymized peer review** — Round 2 prompts label peer answers as "Response A / B / C" with a per-reviewer-randomized mapping. Mappings are kept in orchestrator memory and annotated onto each critique when passed to the chairman so the chairman can decode the letter references. Identity anonymization is from arxiv 2510.07517 (96% identity-bias reduction).
 - **Premortem round** — Before Round 1, each debater independently writes 3 specific ways their eventual answer could be wrong. Output is private (not shared with peers) and folds back into that debater's own Round 1 prompt. Stored as round 0 in the DB for inspection. Klein's premortem research: doubles risks identified.
 - **Forced web search on Round 1** — Round 1 prompt explicitly instructs each debater to search the web for factual claims before answering. Closes the asymmetric-grounding gap where some models would search heavily and others would answer from training data alone.
@@ -312,12 +310,14 @@ This is ~10 lines in bot.ts. All debate logic, bot management, and posting lives
 
 ## Models
 
-| Member | Model ID | Notes |
+> ⚠️ **Not actively maintained.** The model IDs below were refreshed in the code on 2026-10-08 (commit 42a2ca0, "Council models to current generation"); the rest of the project is still not actively maintained. That commit is parked on Casey's call about pushing to the public repo, so it is unconfirmed whether the deployed Trigger.dev/Railway runtime uses the new models yet. `src/lib/llm-client.ts` is the source of truth for model IDs; if reviving, check the provider docs linked below.
+
+| Member | Model ID (in the code, `src/lib/llm-client.ts`) | Notes |
 |---|---|---|
-| Gemini | `gemini-2.5-pro` | Google AI SDK. Google Search grounding. |
-| Claude | `claude-sonnet-4-6` | Anthropic SDK. Web search server tool. |
-| Grok | `grok-4` | xAI API via `openai` SDK (`baseURL: "https://api.x.ai/v1"`). Responses API web search. |
-| GPT | `gpt-4o` | OpenAI SDK. Responses API web search. |
+| Gemini | `gemini-3.8-flash` | Google AI SDK. Google Search grounding. |
+| Claude | `claude-fable-5-1` | Anthropic SDK. Web search server tool (`web_search_20260209`), `max_tokens` 16000. |
+| Grok | `grok-4.7` | xAI API via `openai` SDK (`baseURL: "https://api.x.ai/v1"`). Responses API web search. |
+| GPT | `gpt-6-astra` | OpenAI SDK. Responses API web search. |
 
 All models have real-time web search enabled. Grok and GPT both use the `openai` npm package — xAI's API is OpenAI-compatible.
 
@@ -325,11 +325,7 @@ All models have real-time web search enabled. Grok and GPT both use the `openai`
 
 ## Cost
 
-- **Gemini** — Google AI API rates. Gemini 2.5 Pro: ~$1.25/M input, ~$10/M output.
-- **Claude** — Anthropic API rates. Sonnet 4.6: ~$3/M input, ~$15/M output.
-- **Grok** — xAI API rates. Grok 4: ~$3/M input, ~$15/M output.
-- **GPT** — OpenAI API rates. GPT-4o: ~$2.50/M input, ~$10/M output.
-- A typical 4-member 3-round debate costs ~$0.10-0.30 total.
+- Per-model rates are not recorded here: the models changed 2026-10-08, so the old per-token rates and the ~$0.10-0.30 per-debate figure no longer apply. Check each provider's pricing page for current rates.
 - Token usage tracked per round in `council_rounds.input_tokens` / `output_tokens`. Cost estimated client-side in the web frontend.
 
 ## Conventions
@@ -345,12 +341,11 @@ All models have real-time web search enabled. Grok and GPT both use the `openai`
 
 ## Triggering Debates
 
-There are 4 ways to start a debate:
+There are 3 ways to start a debate:
 
 | Method | How |
 |---|---|
-| **Claude Code (any project)** | `/user:council <question>` — global slash command at `~/.claude/commands/council.md` |
-| **Discord** | `!council <question>` in ChemAI bot |
+| **Claude Code (any project)** | `/council <question>` — global slash command at `~/.claude/commands/council.md` |
 | **Web UI** | Visit `https://aicouncil-production-2677.up.railway.app` and use the form |
 | **curl / API** | `curl -X POST .../council -d '{"question":"..."}'` |
 
@@ -359,15 +354,15 @@ All methods hit the same `POST /council` REST endpoint. Results post to `#ai-cou
 ### Member Selection
 
 By default all 4 members run. To select specific members:
-- **Claude Code:** `/user:council @gemini @claude Is AI overhyped?` — `@member` tags are parsed and stripped from the question
+- **Claude Code:** `/council @gemini @claude Is AI overhyped?` — `@member` tags are parsed and stripped from the question
 - **Web UI:** Uncheck members in the form checkboxes
 - **API:** Include `"members": ["gemini", "claude"]` in POST body
-- **Discord:** Not yet implemented
+- **Discord:** retired 2026-08-22 — there is no Discord trigger to select members from
 
 ## Current State
 
 - 4 LLMs: Gemini, Claude, Grok, GPT
-- 3 rounds: independent → critique → synthesis
+- 4 rounds: premortem → independent → anonymized critique → chairman synthesis
 - 4 Discord bot accounts in `#ai-council`
 - REST API on Railway
 - Supabase (Postgres) for session history
@@ -377,7 +372,7 @@ By default all 4 members run. To select specific members:
 - Structured critique prompt (strongest/weakest claim format)
 - Default `POST /council` uses all 4 members; `members` array can override
 - Member selection: `@member` syntax in slash command, checkboxes in web UI
-- Global Claude Code slash command: `/user:council` (works from any project)
+- Global Claude Code slash command: `/council` (works from any project)
 
 ## Future Ideas
 
@@ -390,8 +385,5 @@ By default all 4 members run. To select specific members:
 | Item | ID |
 |---|---|
 | #ai-council Channel | `1477745064745762928` |
-| Gemini Council Bot ID | TBD — create bot first |
-| Claude Council Bot ID | TBD — create bot first |
 | Owner (Casey) User ID | `330051108083073026` |
 | Trigger.dev Project | `proj_apzdtbbbzumcfgyqcztp` |
-| ChemAI Bot (triggers !council) | `1474788137065779241` |
