@@ -90,7 +90,7 @@ interface LLMClient {
 ```
 
 Factory function `createLLMClient(member)` returns the appropriate client. Models:
-- Gemini: `gemini-3.8-flash` — uses `@google/genai` SDK (v1.x) with Google Search grounding (`googleSearch` tool). Google ships no 3.8 Pro; 3.8 Flash is the newest stable Gemini text model.
+- Gemini: `gemini-4-argon` (since 2026-10-30) — uses `@google/genai` SDK (v1.x) with Google Search grounding (`googleSearch` tool). Gemini 4 Argon is Google's flagship stable reasoning model (October 2026), matching the flagship tier of the other members. It is paid-tier only (no free tier): $2/$10 per 1M input/output through 2026-11-30, then $4/$20.
 - Claude: `claude-fable-5-1` — `max_tokens` 16000, with web search (`web_search_20260209` server tool)
 - Grok: `grok-4.7` — xAI API via `openai` SDK with `baseURL: "https://api.x.ai/v1"`, Responses API with `web_search` tool
 - GPT: `gpt-6-astra` — OpenAI API via `openai` SDK, Responses API with `web_search_preview` tool

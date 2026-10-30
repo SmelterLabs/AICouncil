@@ -314,7 +314,7 @@ Each LLM council member is a separate Discord bot with its own token, username, 
 
 | Member | Model ID (in the code, `src/lib/llm-client.ts`) | Notes |
 |---|---|---|
-| Gemini | `gemini-3.8-flash` | Google AI SDK. Google Search grounding. |
+| Gemini | `gemini-4-argon` | Google AI SDK. Google Search grounding. |
 | Claude | `claude-fable-5-1` | Anthropic SDK. Web search server tool (`web_search_20260209`), `max_tokens` 16000. |
 | Grok | `grok-4.7` | xAI API via `openai` SDK (`baseURL: "https://api.x.ai/v1"`). Responses API web search. |
 | GPT | `gpt-6-astra` | OpenAI SDK. Responses API web search. |
