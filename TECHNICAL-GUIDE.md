@@ -1,6 +1,6 @@
 # AI Council — Technical Guide
 
-> ⚠️ **Not actively maintained.** The model IDs below were refreshed in the code on 2026-10-08 (commit 42a2ca0, "Council models to current generation"); the rest of the project is still not actively maintained. That commit is parked on Casey's call about pushing to the public repo, so it is unconfirmed whether the deployed Trigger.dev/Railway runtime uses the new models yet. `src/lib/llm-client.ts` is the source of truth for model IDs; per-model rates are not recorded here.
+> ⚠️ **Not actively maintained.** The model IDs below were refreshed in the code on 2026-10-08 (commit 42a2ca0, "Council models to current generation"); the current IDs come from the later commits 465b8ab (Claude Fable 5.1) and 49ae996 (Gemini 4 Argon, 2026-10-30); the rest of the project is still not actively maintained. These commits were pushed to origin/master (the public GitHub repo) 2026-10-30; Casey kept it 2026-11-06; deployed runtime models unverified (Railway and Trigger.dev deploy on push to master, but nobody has checked the live deploy). `src/lib/llm-client.ts` is the source of truth for model IDs; apart from the Gemini rates noted under Models, per-model rates are not recorded here.
 
 ## Quick Start
 
@@ -95,7 +95,7 @@ Factory function `createLLMClient(member)` returns the appropriate client. Model
 - Grok: `grok-4.7` — xAI API via `openai` SDK with `baseURL: "https://api.x.ai/v1"`, Responses API with `web_search` tool
 - GPT: `gpt-6-astra` — OpenAI API via `openai` SDK, Responses API with `web_search_preview` tool
 
-(These are the IDs in the code as of 2026-10-08, commit 42a2ca0; see the banner at the top for the deployment caveat.)
+(These are the IDs in the code as of 2026-10-30, commit 49ae996; `src/lib/llm-client.ts` is the source of truth. See the banner at the top for the deployment caveat.)
 
 All models have real-time web search always enabled. The models decide when to actually search based on the question — no manual toggling needed. Grok and GPT both use the `openai` npm package (xAI's API is OpenAI-compatible).
 
@@ -106,7 +106,7 @@ Each LLM call captures `input_tokens` and `output_tokens` from the SDK response,
 - Claude: `message.usage.input_tokens` / `output_tokens`
 - Grok/GPT: `response.usage.input_tokens` / `output_tokens` (OpenAI Responses API format)
 
-Cost estimation is client-side only (in `web/session.html`), not stored in DB. Per-model rates are not recorded in this guide (the models changed 2026-10-08); read them from `web/session.html` or the providers' pricing pages.
+Cost estimation is client-side only (in `web/session.html`), not stored in DB. Apart from the Gemini rates noted under Models above (dated: they step up 2026-12-01), per-model rates are not recorded in this guide; read them from `web/session.html` or the providers' pricing pages.
 
 ### Langfuse Observability
 
@@ -295,7 +295,7 @@ The backend already supports the `members` array in `POST /council`. The slash c
 ## Gotchas
 
 - **Gemini SDK**: Uses `@google/genai` (v1.x), NOT the legacy `@google/generative-ai` (v0.x). New SDK API: `ai.models.generateContent({ model, contents, config: { systemInstruction, tools } })`, response text via `result.text` (property, not method). **Important:** The new SDK defaults to 5 retry attempts with exponential backoff on 503s — configure `httpOptions: { timeout, retryOptions: { attempts: 2 } }` to avoid burning through the Trigger.dev maxDuration on transient 503 errors.
-- **Gemini model**: The code uses `gemini-3.1-pro-preview` again (since 2026-10-08, commit 42a2ca0). It was earlier switched to `gemini-2.5-pro` (GA) because the 3.1 preview had extended 503 outages (24+ hours) in March 2026. Preview models can be unreliable for production, so the retry-limit setting above (`retryOptions: { attempts: 2 }`) still matters; if 503s return, fall back to a GA model.
+- **Gemini model**: The code uses `gemini-4-argon` (since 2026-10-30, commit 49ae996), a stable paid-tier-only model. History: it was switched from `gemini-3.1-pro-preview` to `gemini-2.5-pro` (GA) because the 3.1 preview had extended 503 outages (24+ hours) in March 2026, went back to the 3.1 preview on 2026-10-08 (42a2ca0), then moved to Gemini 3.8 Flash (465b8ab) and Argon. The retry-limit setting above (`retryOptions: { attempts: 2 }`) still matters; if 503s return, fall back to another GA model.
 - `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` must be set in BOTH `.env` (Express/Railway) AND Trigger.dev dashboard — both environments need database access
 - Discord threads have a 100-char name limit — `createThread()` truncates automatically
 - The orchestrator writes to Supabase after each round, but if a DB write fails the debate continues — the database is for history, not orchestration state

@@ -230,7 +230,7 @@ Cloud Postgres via Supabase free tier. Both the Express server (Railway) and Tri
 | `synthesizer` | text | Which LLM produced the synthesis (rotated) |
 | `synthesis` | text | Final synthesized answer (Round 3) |
 | `total_duration_ms` | integer | Wall-clock time for entire debate |
-| `triggered_by` | text NOT NULL | Source: `discord`, `api`, `web` |
+| `triggered_by` | text NOT NULL | Source: `api`, `web` (`discord` appears only on rows from before the Discord trigger was retired 2026-08-22) |
 | `discord_thread_id` | text | Discord thread ID if results were posted |
 | `error` | text | Error message if status = `failed` |
 
@@ -310,7 +310,7 @@ Each LLM council member is a separate Discord bot with its own token, username, 
 
 ## Models
 
-> ⚠️ **Not actively maintained.** The model IDs below were refreshed in the code on 2026-10-08 (commit 42a2ca0, "Council models to current generation"); the rest of the project is still not actively maintained. That commit is parked on Casey's call about pushing to the public repo, so it is unconfirmed whether the deployed Trigger.dev/Railway runtime uses the new models yet. `src/lib/llm-client.ts` is the source of truth for model IDs; if reviving, check the provider docs linked below.
+> ⚠️ **Not actively maintained.** The model IDs below were refreshed in the code on 2026-10-08 (commit 42a2ca0, "Council models to current generation"), then 465b8ab (Claude Fable 5.1) and 49ae996 (Gemini 4 Argon, 2026-10-30); the rest of the project is still not actively maintained. These commits were pushed to origin/master (the public GitHub repo) 2026-10-30; Casey kept it 2026-11-06; deployed runtime models unverified (Railway and Trigger.dev deploy on push to master, but nobody has checked the live deploy). `src/lib/llm-client.ts` is the source of truth for model IDs; if reviving, check the provider docs linked below.
 
 | Member | Model ID (in the code, `src/lib/llm-client.ts`) | Notes |
 |---|---|---|

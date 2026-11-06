@@ -1,5 +1,7 @@
 # AI Council — User Guide
 
+> ⚠️ **Partially stale — this project is not actively maintained.** The debate-flow description below predates the 2026-05-26 redesign (which added a private premortem round, anonymized critiques, chairman recusal from the debate, and a confidence-dispersion diagnostic posted to Discord), and the member/model/pricing details are unmaintained. **CLAUDE.md is the current reference** for how debates actually run. **Also stale: the "From Discord" `!council` method below is retired — the ChemAI bot was deleted 2026-08-22.**
+
 AI Council is a structured debate engine. Ask a question, and 4 AI models (Gemini, Claude, Grok, GPT) independently answer it, critique each other's positions, and produce a synthesized final answer.
 
 ## How to Start a Debate
@@ -7,20 +9,14 @@ AI Council is a structured debate engine. Ask a question, and 4 AI models (Gemin
 ### From Claude Code (any project)
 
 ```
-/user:council Will AI replace software engineers?
+/council Will AI replace software engineers?
 ```
 
 This works from any Claude Code session — you don't need to be in the AI Council project.
 
-### From Discord
+### From Discord — RETIRED 2026-08-22
 
-Type in any channel where the ChemAI bot is active:
-
-```
-!council What's the best programming language for beginners?
-```
-
-Results appear in the `#ai-council` channel as a threaded conversation.
+> The ChemAI Discord bot no longer exists, so there is no way to start a debate from Discord. Use the slash command or the web UI instead. (Finished debates are still posted to the `#ai-council` channel by the council's own bots — that half still works.)
 
 ### From the Web UI
 
@@ -45,7 +41,7 @@ By default, all 4 AIs participate. You can run a debate with only specific membe
 Tag members with `@` before your question:
 
 ```
-/user:council @gemini @claude Is AI overhyped?
+/council @gemini @claude Is AI overhyped?
 ```
 
 This runs only Gemini and Claude. No `@` tags = all 4 members.
@@ -107,23 +103,13 @@ Visit the web UI homepage to see a list of all past debates with their status, d
 
 ## The 4 Council Members
 
-| Member | Model | Strengths |
-|---|---|---|
-| Gemini | gemini-2.5-pro | Google Search grounding for real-time info |
-| Claude | claude-sonnet-4-6 | Nuanced reasoning, web search |
-| Grok | grok-4 | Direct style, web search |
-| GPT | gpt-4o | Broad knowledge, web search |
+The four members are Gemini, Claude, Grok and GPT. The exact model each one runs changes over time; the current list is in CLAUDE.md → Models (source of truth: `src/lib/llm-client.ts`).
 
 All 4 models have web search enabled, so they can look up current information when answering.
 
 ## Cost
 
-- **Gemini** — ~$1.25/M input tokens, ~$10/M output tokens
-- **Claude** — ~$3/M input tokens, ~$15/M output tokens
-- **Grok** — ~$3/M input tokens, ~$15/M output tokens
-- **GPT** — ~$2.50/M input tokens, ~$10/M output tokens
-
-A typical 4-member debate costs roughly $0.10–$0.30 total. Per-round costs are shown on the web frontend.
+Costs depend on the current models, which are newer and pricier than the ones this guide first described, so older per-debate estimates no longer apply. Per-round and total session costs are shown on the web frontend.
 
 ## Limitations
 
@@ -141,4 +127,4 @@ A typical 4-member debate costs roughly $0.10–$0.30 total. Per-round costs are
 | One AI didn't respond | If one AI fails, the debate may stop at that point. Check the web frontend for error messages. |
 | "Session not found" on web | Double-check the session ID in the URL. IDs are UUIDs like `fd972e03-db56-4158-9cac-9384c91e2620`. |
 | No Discord posts | The debate still runs and stores results in the database. Check the web frontend instead. |
-| `/user:council` not recognized | Make sure `~/.claude/commands/council.md` exists. It's a global Claude Code command. |
+| `/council` not recognized | Make sure `~/.claude/commands/council.md` exists. It's a global Claude Code command. |
