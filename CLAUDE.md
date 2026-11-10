@@ -152,6 +152,15 @@ docs/
 dist/                                      # tsc build output — generated, not source
 ```
 
+## Code ownership
+
+This codebase is yours: what it's for and how it's built are your call, and you'll keep building on it.
+When code you touch repeats existing code, merge it; when you find a nearby defect, fix it instead of
+only reporting it. Three limits: the product rules, gates and out-of-scope lists in this project still win;
+a worker seat owns only the files its task file names, so outside those it reports instead of editing;
+and any change to existing user-facing behaviour that nobody asked for is called out explicitly in the
+final report and PR, which list every changed file, not just the large changes.
+
 ## Development
 
 ```bash
